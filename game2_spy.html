@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>كاشف الجاسوس</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Reem+Kufi:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --kraft:#D8C9A3; --kraft-dark:#C2AF7E; --ink:#2B2620; --red:#A3241C; --red-dark:#7A1815;
+  --paper:#F3E9D2; --line:#8B7A55; --gold:#B4913A;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{height:100%; font-family:'Cairo',sans-serif; background:var(--kraft); color:var(--ink);}
+body{
+  background-image:
+    radial-gradient(circle at 10% 20%, rgba(0,0,0,.04) 0, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(0,0,0,.05) 0, transparent 40%),
+    linear-gradient(var(--kraft), var(--kraft));
+}
+#appRoot{position:fixed; inset:0; overflow-y:auto; overflow-x:hidden; display:flex; align-items:center; justify-content:center;}
+.screen{min-height:100%; width:100%; display:flex; align-items:center; justify-content:center; padding:30px 16px;}
+.hidden{display:none !important;}
+
+.folder{background:var(--paper); border:1px solid var(--line); border-radius:4px; max-width:520px; width:100%; padding:34px 28px; position:relative; box-shadow:0 10px 30px rgba(0,0,0,.25), 0 0 0 6px var(--kraft-dark) inset;}
+.folder::before{content:'ملف سري'; position:absolute; top:-16px; right:26px; background:var(--red); color:#fff; font-weight:900; padding:4px 16px; border-radius:3px; font-size:.85rem; transform:rotate(-3deg); box-shadow:0 3px 6px rgba(0,0,0,.3);}
+h1.title{font-family:'Reem Kufi'; font-size:2rem; text-align:center; margin-bottom:6px; color:var(--ink); letter-spacing:1px;}
+.subtitle{text-align:center; color:var(--line); margin-bottom:22px; font-size:.95rem;}
+.stamp{position:absolute; border:3px solid var(--red); color:var(--red); font-weight:900; padding:6px 14px; border-radius:6px; transform:rotate(-14deg); opacity:.75; font-size:1.1rem; pointer-events:none; font-family:'Reem Kufi';}
+
+label.field{display:block; margin-bottom:6px; font-weight:700; color:var(--ink); font-size:.95rem;}
+input[type=text], select{width:100%; padding:12px 14px; border-radius:6px; border:1.5px solid var(--line); font-family:'Cairo'; font-size:1rem; background:#fff; margin-bottom:16px;}
+.btn{display:inline-block; padding:13px 24px; border-radius:8px; border:none; font-family:'Cairo'; font-weight:700; font-size:1rem; cursor:pointer; transition:transform .15s;}
+.btn:active{transform:scale(.96);}
+.btn-red{background:var(--red); color:#fff;}
+.btn-outline{background:transparent; border:2px solid var(--ink); color:var(--ink);}
+.btn-row{display:flex; gap:10px; justify-content:center; margin-top:8px; flex-wrap:wrap;}
+.divider{text-align:center; color:var(--line); margin:18px 0; font-size:.85rem; position:relative;}
+.divider::before,.divider::after{content:''; position:absolute; top:50%; width:38%; height:1px; background:var(--line);}
+.divider::before{right:0;} .divider::after{left:0;}
+
+.upload-box{border:2px dashed var(--red); border-radius:8px; padding:12px; text-align:center; margin-bottom:12px; font-size:.85rem; color:var(--red-dark); cursor:pointer;}
+.small{font-size:.8rem; color:var(--line); text-align:center; margin-top:4px;}
+.code-display{text-align:center; font-family:'Reem Kufi'; font-size:2.4rem; letter-spacing:6px; color:var(--red); margin:10px 0; font-weight:700;}
+.player-list{list-style:none; margin:14px 0; display:flex; flex-direction:column; gap:8px;}
+.player-list li{background:#fff; border:1px solid var(--line); border-radius:6px; padding:10px 14px; display:flex; justify-content:space-between; font-weight:700;}
+
+/* role reveal */
+.role-card{text-align:center;}
+.role-word{font-family:'Reem Kufi'; font-size:2.2rem; color:var(--red); margin:18px 0; padding:16px; border:2px dashed var(--red); border-radius:8px; background:#fff8ea;}
+.role-spy{font-family:'Reem Kufi'; font-size:1.8rem; color:var(--ink); margin:18px 0; padding:16px; border:2px solid var(--ink); border-radius:8px; background:#e8e2d0;}
+.tap-hint{color:var(--line); font-size:.9rem; margin-top:6px;}
+.card-cover{background:linear-gradient(135deg,#3a3226,#221d16); color:#e8d9ad; border-radius:10px; padding:60px 20px; text-align:center; cursor:pointer; font-family:'Reem Kufi'; font-size:1.3rem;}
+
+/* discussion / voting */
+.timer-big{font-family:'Reem Kufi'; font-size:3rem; text-align:center; color:var(--red); margin:10px 0;}
+.vote-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:16px 0;}
+.vote-option{background:#fff; border:2px solid var(--line); border-radius:8px; padding:14px; text-align:center; font-weight:700; cursor:pointer;}
+.vote-option.picked{border-color:var(--red); background:#fdeceb;}
+.vote-option.disabled{opacity:.5; pointer-events:none;}
+
+.result-banner{text-align:center; font-family:'Reem Kufi'; font-size:1.6rem; margin:14px 0; padding:14px; border-radius:8px;}
+.result-win{background:#e3f2e6; color:#22662e; border:2px solid #22662e;}
+.result-lose{background:#fbe3e1; color:var(--red-dark); border:2px solid var(--red-dark);}
+
+.typewriter-line{border-bottom:1px dashed var(--line); margin:14px 0;}
+</style>
+</head>
+<body>
+<div id="appRoot">
+
+<!-- HOME: create or join -->
+<div class="screen" id="homeScreen">
+  <div class="folder">
+    <div class="stamp" style="top:20px; left:20px;">سري للغاية</div>
+    <h1 class="title">🕵️ كاشف الجاسوس</h1>
+    <p class="subtitle">كل لاعب يفتح اللعبة من جهازه الخاص</p>
+
+    <button class="btn btn-red" style="width:100%;" onclick="showCreate()">إنشاء غرفة جديدة (مضيف)</button>
+    <div class="divider">أو</div>
+    <label class="field">رمز الغرفة</label>
+    <input type="text" id="joinCodeInput" placeholder="مثال: 4821" maxlength="6">
+    <label class="field">اسمك</label>
+    <input type="text" id="joinNameInput" placeholder="اكتب اسمك">
+    <button class="btn btn-outline" style="width:100%;" onclick="joinRoom()">انضمام للغرفة</button>
+    <p class="small" id="homeError"></p>
+  </div>
+</div>
+
+<!-- CREATE ROOM (host config) -->
+<div class="screen hidden" id="createScreen">
+  <div class="folder">
+    <h1 class="title">إعداد الغرفة</h1>
+    <label class="field">مجال الكلمات</label>
+    <select id="categorySelect"></select>
+    <div class="upload-box" onclick="document.getElementById('fileInput').click()">📂 رفع مجال جديد (Excel/CSV)</div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleUpload(event)">
+    <p class="small">عمود واحد فقط: كلمة سرية في كل سطر</p>
+    <label class="field" style="margin-top:14px;">عدد الجواسيس</label>
+    <select id="spyCountSelect">
+      <option value="1">جاسوس واحد</option>
+      <option value="2">جاسوسان</option>
+    </select>
+    <label class="field" style="margin-top:14px;">اسمك (المضيف)</label>
+    <input type="text" id="hostNameInput" placeholder="اكتب اسمك">
+    <button class="btn btn-red" style="width:100%; margin-top:6px;" onclick="createRoom()">إنشاء الغرفة</button>
+  </div>
+</div>
+
+<!-- LOBBY -->
+<div class="screen hidden" id="lobbyScreen">
+  <div class="folder">
+    <h1 class="title">غرفة الانتظار</h1>
+    <p class="subtitle">شارك هذا الرمز مع اللاعبين</p>
+    <div class="code-display" id="lobbyCode">----</div>
+    <ul class="player-list" id="playerList"></ul>
+    <p class="small" id="lobbyHint">بانتظار انضمام اللاعبين... (الحد الأدنى 3 لاعبين)</p>
+    <div class="btn-row hidden" id="hostStartWrap">
+      <button class="btn btn-red" id="startRoundBtn" onclick="startRound()">ابدأ الجولة 🎬</button>
+    </div>
+  </div>
+</div>
+
+<!-- ROLE REVEAL -->
+<div class="screen hidden" id="roleScreen">
+  <div class="folder role-card">
+    <div id="roleCover" class="card-cover" onclick="revealRole()">👆 اضغط لكشف دورك السري</div>
+    <div id="roleContent" class="hidden">
+      <div id="roleBox"></div>
+      <p class="tap-hint">احفظ دورك جيداً ثم انتظر بدء النقاش</p>
+      <button class="btn btn-outline" style="margin-top:16px;" onclick="markReady()">أنا جاهز ✅</button>
+      <p class="small" id="readyStatus"></p>
+    </div>
+  </div>
+</div>
+
+<!-- DISCUSSION -->
+<div class="screen hidden" id="discussScreen">
+  <div class="folder" style="text-align:center;">
+    <h1 class="title">⏱ وقت النقاش</h1>
+    <p class="subtitle">تحدثوا عن الكلمة دون كشفها... من هو الجاسوس؟</p>
+    <div class="timer-big" id="discussTimer">120</div>
+    <div class="btn-row">
+      <button class="btn btn-red" onclick="goToVote()">الانتقال للتصويت الآن 🗳</button>
+    </div>
+  </div>
+</div>
+
+<!-- VOTING -->
+<div class="screen hidden" id="voteScreen">
+  <div class="folder">
+    <h1 class="title">🗳 من الجاسوس؟</h1>
+    <p class="subtitle">صوّت لمن تعتقد أنه الجاسوس</p>
+    <div class="vote-grid" id="voteGrid"></div>
+    <p class="small" id="voteStatus"></p>
+  </div>
+</div>
+
+<!-- RESULTS -->
+<div class="screen hidden" id="resultScreen">
+  <div class="folder" style="text-align:center;">
+    <h1 class="title">📋 نتيجة التحقيق</h1>
+    <div class="result-banner" id="resultBanner"></div>
+    <div id="resultDetail" class="typewriter-line" style="padding:14px 0;"></div>
+    <ul class="player-list" id="scoreList"></ul>
+    <div class="btn-row">
+      <button class="btn btn-red" id="nextRoundBtn" onclick="nextRound()">جولة جديدة 🔄</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script>
+/* =========================================================
+   ضع إعدادات مشروع Firebase الخاص بك هنا (placeholder)
+   نفس الإعدادات التي تستخدمها في لعبة الكودنيمز يمكن استخدامها هنا مباشرة
+========================================================= */
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+/* ---------- WORD BANKS ---------- */
+let wordBanks = {
+ 'عام':['قهوة','مطار','مستشفى','مدرسة','شاطئ','سيارة','هاتف','حديقة','مكتبة','سوق'],
+ 'قطر':['كورنيش الدوحة','سوق واقف','متحف الفن الإسلامي','لؤلؤة قطر','الزبارة','كتارا'],
+ 'رياضة':['كرة القدم','السباحة','الجري','التنس','رفع الأثقال','ركوب الخيل'],
+};
+function populateCategorySelect(){
+  const sel = document.getElementById('categorySelect');
+  sel.innerHTML = '';
+  Object.keys(wordBanks).forEach(cat=>{
+    const o = document.createElement('option'); o.value=cat; o.textContent=cat; sel.appendChild(o);
+  });
+}
+populateCategorySelect();
+function handleUpload(e){
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    const wb = XLSX.read(ev.target.result, {type:'binary'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1}).filter(r=>r.length && r[0]);
+    const name = file.name.replace(/\.[^.]+$/,'');
+    wordBanks[name] = rows.map(r=>String(r[0]));
+    populateCategorySelect();
+    document.getElementById('categorySelect').value = name;
+  };
+  reader.readAsBinaryString(file);
+}
+
+/* ---------- AUDIO (typewriter / tension / reveal) ---------- */
+const actx = new (window.AudioContext||window.webkitAudioContext)();
+function beep(freq,dur,type='sine',vol=.25,delay=0){
+  const t = actx.currentTime + delay;
+  const o = actx.createOscillator(); const g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t+dur);
+  o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t+dur);
+}
+function keyClick(){ beep(1200+Math.random()*400,.03,'square',.15); }
+function tick(){ beep(880,.05,'square',.12); }
+function revealSound(){ beep(220,.2,'sawtooth',.2); beep(440,.15,'sine',.15,.1); }
+function stampSound(){ beep(90,.15,'square',.3); }
+function winSound(){ [523,659,784].forEach((f,i)=>beep(f,.3,'sine',.2,i*.1)); }
+function loseSound(){ beep(180,.4,'sawtooth',.25); }
+
+/* ---------- STATE ---------- */
+let roomCode = null, playerId = null, playerName = null, isHost = false;
+let roomRef = null, unsubRoom = null, unsubPlayers = null;
+let playersCache = [];
+let myRole = null; // {isSpy, word}
+let discussInterval = null;
+
+function genCode(){ return String(Math.floor(1000+Math.random()*9000)); }
+function genId(){ return 'p_'+Math.random().toString(36).slice(2,10); }
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+function showCreate(){ showScreen('createScreen'); }
+
+/* ---------- CREATE ROOM ---------- */
+async function createRoom(){
+  const name = document.getElementById('hostNameInput').value.trim();
+  if(!name){ alert('اكتب اسمك أولاً'); return; }
+  const category = document.getElementById('categorySelect').value;
+  const spyCount = parseInt(document.getElementById('spyCountSelect').value);
+  roomCode = genCode();
+  playerId = genId(); playerName = name; isHost = true;
+
+  roomRef = db.collection('spyRooms').doc(roomCode);
+  await roomRef.set({
+    status:'lobby', category, words: wordBanks[category], spyCount,
+    hostId: playerId, round:1,
+    discussSeconds:120, createdAt: Date.now()
+  });
+  await roomRef.collection('players').doc(playerId).set({
+    name, score:0, ready:false, vote:null, isSpy:false, joinedAt: Date.now()
+  });
+  enterLobby();
+}
+
+/* ---------- JOIN ROOM ---------- */
+async function joinRoom(){
+  const code = document.getElementById('joinCodeInput').value.trim();
+  const name = document.getElementById('joinNameInput').value.trim();
+  const err = document.getElementById('homeError');
+  if(!code || !name){ err.textContent='الرجاء إدخال الرمز والاسم'; return; }
+  const ref = db.collection('spyRooms').doc(code);
+  const snap = await ref.get();
+  if(!snap.exists){ err.textContent='لا توجد غرفة بهذا الرمز'; return; }
+  roomCode = code; roomRef = ref; playerId = genId(); playerName = name; isHost = false;
+  await roomRef.collection('players').doc(playerId).set({
+    name, score:0, ready:false, vote:null, isSpy:false, joinedAt: Date.now()
+  });
+  enterLobby();
+}
+
+/* ---------- LOBBY ---------- */
+function enterLobby(){
+  document.getElementById('lobbyCode').textContent = roomCode;
+  showScreen('lobbyScreen');
+  listenRoom();
+  listenPlayers();
+}
+
+function listenRoom(){
+  if(unsubRoom) unsubRoom();
+  unsubRoom = roomRef.onSnapshot(doc=>{
+    const data = doc.data();
+    if(!data) return;
+    handleRoomUpdate(data);
+  });
+}
+function listenPlayers(){
+  if(unsubPlayers) unsubPlayers();
+  unsubPlayers = roomRef.collection('players').onSnapshot(qs=>{
+    playersCache = [];
+    qs.forEach(d=> playersCache.push({id:d.id, ...d.data()}));
+    renderLobbyPlayers();
+    if(document.getElementById('roleScreen').classList.contains('hidden')===false){
+      renderReadyStatus();
+    }
+    if(document.getElementById('voteScreen').classList.contains('hidden')===false){
+      checkVotesComplete();
+    }
+  });
+}
+
+function renderLobbyPlayers(){
+  const list = document.getElementById('playerList');
+  list.innerHTML = playersCache.map(p=>`<li>${p.name} ${roomCache && p.id===roomCache.hostId?'👑':''}</li>`).join('');
+}
+
+let roomCache = null;
+function handleRoomUpdate(data){
+  roomCache = data;
+  if(data.status==='lobby'){
+    const hostWrap = document.getElementById('hostStartWrap');
+    hostWrap.classList.toggle('hidden', !isHost);
+    document.getElementById('lobbyHint').textContent = playersCache.length<3
+      ? `بانتظار انضمام اللاعبين... (${playersCache.length}/3 كحد أدنى)`
+      : (isHost ? 'يمكنك الآن بدء الجولة!' : 'بانتظار المضيف لبدء الجولة...');
+  } else if(data.status==='reveal'){
+    if(document.getElementById('roleScreen').classList.contains('hidden')){
+      enterRoleScreen(data);
+    }
+  } else if(data.status==='discuss'){
+    if(document.getElementById('discussScreen').classList.contains('hidden')){
+      enterDiscuss(data);
+    }
+  } else if(data.status==='vote'){
+    if(document.getElementById('voteScreen').classList.contains('hidden')){
+      enterVote();
+    }
+  } else if(data.status==='results'){
+    if(document.getElementById('resultScreen').classList.contains('hidden')){
+      showResults(data);
+    }
+  }
+}
+
+/* ---------- START ROUND (host assigns roles) ---------- */
+async function startRound(){
+  if(playersCache.length<3){ alert('تحتاج 3 لاعبين على الأقل'); return; }
+  const words = roomCache.words;
+  const word = words[Math.floor(Math.random()*words.length)];
+  const spyCount = roomCache.spyCount || 1;
+  const shuffled = [...playersCache].sort(()=>Math.random()-0.5);
+  const spies = shuffled.slice(0, spyCount).map(p=>p.id);
+
+  const batch = db.batch();
+  playersCache.forEach(p=>{
+    const pRef = roomRef.collection('players').doc(p.id);
+    batch.update(pRef, { isSpy: spies.includes(p.id), ready:false, vote:null });
+  });
+  batch.update(roomRef, { status:'reveal', currentWord: word });
+  await batch.commit();
+}
+
+/* ---------- ROLE REVEAL ---------- */
+function enterRoleScreen(data){
+  showScreen('roleScreen');
+  document.getElementById('roleCover').classList.remove('hidden');
+  document.getElementById('roleContent').classList.add('hidden');
+  document.getElementById('roleCover').onclick = ()=> revealRole(data);
+}
+function revealRole(data){
+  data = data || roomCache;
+  const me = playersCache.find(p=>p.id===playerId);
+  revealSound();
+  document.getElementById('roleCover').classList.add('hidden');
+  document.getElementById('roleContent').classList.remove('hidden');
+  const box = document.getElementById('roleBox');
+  if(me && me.isSpy){
+    box.innerHTML = `<div class="role-spy">🕵️ أنت الجاسوس!<br><span style="font-size:1rem; font-weight:400;">لا تعرف الكلمة — حاول التمويه والتخمين من كلام الآخرين</span></div>`;
+  } else {
+    box.innerHTML = `<div class="role-word">🔑 الكلمة السرية:<br>${data.currentWord}</div>`;
+  }
+}
+async function markReady(){
+  await roomRef.collection('players').doc(playerId).update({ ready:true });
+  document.getElementById('readyStatus').textContent = 'بانتظار بقية اللاعبين...';
+  if(isHost) checkAllReady();
+}
+function renderReadyStatus(){
+  if(!isHost) return;
+  checkAllReady();
+}
+async function checkAllReady(){
+  if(roomCache.status!=='reveal') return;
+  if(playersCache.length>0 && playersCache.every(p=>p.ready)){
+    await roomRef.update({ status:'discuss', discussStartedAt: Date.now() });
+  }
+}
+
+/* ---------- DISCUSSION ---------- */
+function enterDiscuss(data){
+  showScreen('discussScreen');
+  const total = data.discussSeconds || 120;
+  const startedAt = data.discussStartedAt || Date.now();
+  clearInterval(discussInterval);
+  discussInterval = setInterval(()=>{
+    const elapsed = Math.floor((Date.now()-startedAt)/1000);
+    const left = Math.max(0, total-elapsed);
+    document.getElementById('discussTimer').textContent = left;
+    if(left<=0){ clearInterval(discussInterval); if(isHost) goToVote(); }
+    else if(left<=10) tick();
+  }, 1000);
+}
+async function goToVote(){
+  clearInterval(discussInterval);
+  await roomRef.update({ status:'vote' });
+}
+
+/* ---------- VOTING ---------- */
+function enterVote(){
+  showScreen('voteScreen');
+  const grid = document.getElementById('voteGrid');
+  grid.innerHTML = playersCache.filter(p=>p.id!==playerId).map(p=>
+    `<div class="vote-option" data-id="${p.id}" onclick="castVote('${p.id}')">${p.name}</div>`
+  ).join('');
+  document.getElementById('voteStatus').textContent = '';
+}
+async function castVote(targetId){
+  document.querySelectorAll('.vote-option').forEach(el=>{
+    el.classList.toggle('picked', el.dataset.id===targetId);
+    el.classList.add('disabled');
+  });
+  stampSound();
+  await roomRef.collection('players').doc(playerId).update({ vote: targetId });
+  document.getElementById('voteStatus').textContent = 'تم التصويت! بانتظار البقية...';
+}
+async function checkVotesComplete(){
+  if(!isHost) return;
+  if(roomCache.status!=='vote') return;
+  if(playersCache.length>0 && playersCache.every(p=>p.vote)){
+    await computeResults();
+  }
+}
+async function computeResults(){
+  const tally = {};
+  playersCache.forEach(p=>{ tally[p.vote] = (tally[p.vote]||0)+1; });
+  let maxVotes=0, accused=[];
+  Object.entries(tally).forEach(([id,count])=>{
+    if(count>maxVotes){ maxVotes=count; accused=[id]; }
+    else if(count===maxVotes){ accused.push(id); }
+  });
+  const spies = playersCache.filter(p=>p.isSpy).map(p=>p.id);
+  const caughtSpy = accused.length===1 && spies.includes(accused[0]);
+
+  const batch = db.batch();
+  playersCache.forEach(p=>{
+    let scoreAdd = 0;
+    if(!p.isSpy && caughtSpy) scoreAdd = 10;
+    if(p.isSpy && !caughtSpy) scoreAdd = 15;
+    batch.update(roomRef.collection('players').doc(p.id), { score: p.score+scoreAdd, lastScoreAdd: scoreAdd });
+  });
+  batch.update(roomRef, { status:'results', accusedIds: accused, caughtSpy, spyIds: spies });
+  await batch.commit();
+}
+
+function showResults(data){
+  showScreen('resultScreen');
+  const banner = document.getElementById('resultBanner');
+  const detail = document.getElementById('resultDetail');
+  const spyNames = playersCache.filter(p=>data.spyIds.includes(p.id)).map(p=>p.name).join('، ');
+  const accusedNames = playersCache.filter(p=>data.accusedIds.includes(p.id)).map(p=>p.name).join('، ');
+  if(data.caughtSpy){
+    banner.className='result-banner result-win'; banner.textContent='✅ تم كشف الجاسوس!';
+    winSound();
+  } else {
+    banner.className='result-banner result-lose'; banner.textContent='❌ نجا الجاسوس!';
+    loseSound();
+  }
+  detail.innerHTML = `الجاسوس كان: <b>${spyNames}</b><br>تم اتهام: <b>${accusedNames}</b><br>الكلمة السرية كانت: <b>${data.currentWord}</b>`;
+  const scoreList = document.getElementById('scoreList');
+  const sorted = [...playersCache].sort((a,b)=>b.score-a.score);
+  scoreList.innerHTML = sorted.map(p=>`<li>${p.name} <span>${p.score} نقطة</span></li>`).join('');
+  const nextBtn = document.getElementById('nextRoundBtn');
+  nextBtn.style.display = isHost ? 'inline-block' : 'none';
+}
+
+async function nextRound(){
+  const batch = db.batch();
+  playersCache.forEach(p=>{
+    batch.update(roomRef.collection('players').doc(p.id), { ready:false, vote:null, isSpy:false });
+  });
+  batch.update(roomRef, { status:'lobby', round: (roomCache.round||1)+1 });
+  await batch.commit();
+  showScreen('lobbyScreen');
+}
+document.addEventListener('keydown', (e)=>{
+  if(e.target.tagName==='INPUT') keyClick();
+});
+</script>
+</body>
+</html>
