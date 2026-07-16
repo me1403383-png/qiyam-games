@@ -180,12 +180,12 @@ input[type=text], select{width:100%; padding:12px 14px; border-radius:6px; borde
    نفس الإعدادات التي تستخدمها في لعبة الكودنيمز يمكن استخدامها هنا مباشرة
 ========================================================= */
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBvmmTH77r77YYEfMnLdRRMSw6aK8eUJmM",
+  authDomain: "qiyam-games.firebaseapp.com",
+  projectId: "qiyam-games",
+  storageBucket: "qiyam-games.firebasestorage.app",
+  messagingSenderId: "4829303446",
+  appId: "1:4829303446:web:44c6a19e73da1b29d6e8b7"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
@@ -260,16 +260,23 @@ async function createRoom(){
   roomCode = genCode();
   playerId = genId(); playerName = name; isHost = true;
 
-  roomRef = db.collection('spyRooms').doc(roomCode);
-  await roomRef.set({
-    status:'lobby', category, words: wordBanks[category], spyCount,
-    hostId: playerId, round:1,
-    discussSeconds:120, createdAt: Date.now()
-  });
-  await roomRef.collection('players').doc(playerId).set({
-    name, score:0, ready:false, vote:null, isSpy:false, joinedAt: Date.now()
-  });
-  enterLobby();
+  console.log('محاولة إنشاء غرفة برمز:', roomCode);
+  try{
+    roomRef = db.collection('spyRooms').doc(roomCode);
+    await roomRef.set({
+      status:'lobby', category, words: wordBanks[category], spyCount,
+      hostId: playerId, round:1,
+      discussSeconds:120, createdAt: Date.now()
+    });
+    await roomRef.collection('players').doc(playerId).set({
+      name, score:0, ready:false, vote:null, isSpy:false, joinedAt: Date.now()
+    });
+    console.log('تم إنشاء الغرفة بنجاح ✅');
+    enterLobby();
+  } catch(err){
+    console.error('فشل إنشاء الغرفة:', err);
+    alert('حدث خطأ عند إنشاء الغرفة: ' + err.message);
+  }
 }
 
 /* ---------- JOIN ROOM ---------- */
