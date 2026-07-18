@@ -173,7 +173,7 @@ input[type=text], select{width:100%; padding:12px 14px; border-radius:6px; borde
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
 /* =========================================================
    ضع إعدادات مشروع Firebase الخاص بك هنا (placeholder)
@@ -182,14 +182,14 @@ input[type=text], select{width:100%; padding:12px 14px; border-radius:6px; borde
 const firebaseConfig = {
   apiKey: "AIzaSyBvmmTH77r77YYEfMnLdRRMSw6aK8eUJmM",
   authDomain: "qiyam-games.firebaseapp.com",
+  databaseURL: "https://qiyam-games-default-rtdb.asia-southeast1.firebasedatabase.app/",
   projectId: "qiyam-games",
   storageBucket: "qiyam-games.firebasestorage.app",
   messagingSenderId: "4829303446",
   appId: "1:4829303446:web:44c6a19e73da1b29d6e8b7"
 };
 firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
+const db = firebase.database();
 
 /* ---------- WORD BANKS ---------- */
 let wordBanks = {
@@ -263,13 +263,13 @@ async function createRoom(){
 
   console.log('محاولة إنشاء غرفة برمز:', roomCode);
   try{
-    roomRef = db.collection('spyRooms').doc(roomCode);
+    roomRef = db.ref('spyRooms/'+roomCode);
     await roomRef.set({
       status:'lobby', category, words: wordBanks[category], spyCount,
       hostId: playerId, round:1,
       discussSeconds:120, createdAt: Date.now()
     });
-    await roomRef.collection('players').doc(playerId).set({
+    await roomRef.child('players').child(playerId).set({
       name, score:0, ready:false, vote:null, isSpy:false, joinedAt: Date.now()
     });
     console.log('تم إنشاء الغرفة بنجاح ✅');
@@ -286,11 +286,11 @@ async function joinRoom(){
   const name = document.getElementById('joinNameInput').value.trim();
   const err = document.getElementById('homeError');
   if(!code || !name){ err.textContent='الرجاء إدخال الرمز والاسم'; return; }
-  const ref = db.collection('spyRooms').doc(code);
-  const snap = await ref.get();
-  if(!snap.exists){ err.textContent='لا توجد غرفة بهذا الرمز'; return; }
+  const ref = db.ref('spyRooms/'+code);
+  const snap = await ref.once('value');
+  if(!snap.exists()){ err.textContent='لا توجد غرفة بهذا الرمز'; return; }
   roomCode = code; roomRef = ref; playerId = genId(); playerName = name; isHost = false;
-  await roomRef.collection('players').doc(playerId).set({
+  await roomRef.child('players').child(playerId).set({
     name, score:0, ready:false, vote:null, isSpy:false, joinedAt: Date.now()
   });
   enterLobby();
@@ -305,18 +305,20 @@ function enterLobby(){
 }
 
 function listenRoom(){
-  if(unsubRoom) unsubRoom();
-  unsubRoom = roomRef.onSnapshot(doc=>{
-    const data = doc.data();
+  if(unsubRoom) roomRef.off('value', unsubRoom);
+  unsubRoom = (snap)=>{
+    const data = snap.val();
     if(!data) return;
     handleRoomUpdate(data);
-  });
+  };
+  roomRef.on('value', unsubRoom);
 }
 function listenPlayers(){
-  if(unsubPlayers) unsubPlayers();
-  unsubPlayers = roomRef.collection('players').onSnapshot(qs=>{
-    playersCache = [];
-    qs.forEach(d=> playersCache.push({id:d.id, ...d.data()}));
+  const playersRef = roomRef.child('players');
+  if(unsubPlayers) playersRef.off('value', unsubPlayers);
+  unsubPlayers = (snap)=>{
+    const data = snap.val() || {};
+    playersCache = Object.keys(data).map(id=>({ id, ...data[id] }));
     renderLobbyPlayers();
     if(document.getElementById('roleScreen').classList.contains('hidden')===false){
       renderReadyStatus();
@@ -324,7 +326,8 @@ function listenPlayers(){
     if(document.getElementById('voteScreen').classList.contains('hidden')===false){
       checkVotesComplete();
     }
-  });
+  };
+  playersRef.on('value', unsubPlayers);
 }
 
 function renderLobbyPlayers(){
@@ -369,13 +372,15 @@ async function startRound(){
   const shuffled = [...playersCache].sort(()=>Math.random()-0.5);
   const spies = shuffled.slice(0, spyCount).map(p=>p.id);
 
-  const batch = db.batch();
+  const updates = {};
   playersCache.forEach(p=>{
-    const pRef = roomRef.collection('players').doc(p.id);
-    batch.update(pRef, { isSpy: spies.includes(p.id), ready:false, vote:null });
+    updates[`spyRooms/${roomCode}/players/${p.id}/isSpy`] = spies.includes(p.id);
+    updates[`spyRooms/${roomCode}/players/${p.id}/ready`] = false;
+    updates[`spyRooms/${roomCode}/players/${p.id}/vote`] = null;
   });
-  batch.update(roomRef, { status:'reveal', currentWord: word });
-  await batch.commit();
+  updates[`spyRooms/${roomCode}/status`] = 'reveal';
+  updates[`spyRooms/${roomCode}/currentWord`] = word;
+  await db.ref().update(updates);
 }
 
 /* ---------- ROLE REVEAL ---------- */
@@ -399,7 +404,7 @@ function revealRole(data){
   }
 }
 async function markReady(){
-  await roomRef.collection('players').doc(playerId).update({ ready:true });
+  await roomRef.child('players').child(playerId).update({ ready:true });
   document.getElementById('readyStatus').textContent = 'بانتظار بقية اللاعبين...';
   if(isHost) checkAllReady();
 }
@@ -448,7 +453,7 @@ async function castVote(targetId){
     el.classList.add('disabled');
   });
   stampSound();
-  await roomRef.collection('players').doc(playerId).update({ vote: targetId });
+  await roomRef.child('players').child(playerId).update({ vote: targetId });
   document.getElementById('voteStatus').textContent = 'تم التصويت! بانتظار البقية...';
 }
 async function checkVotesComplete(){
@@ -469,15 +474,19 @@ async function computeResults(){
   const spies = playersCache.filter(p=>p.isSpy).map(p=>p.id);
   const caughtSpy = accused.length===1 && spies.includes(accused[0]);
 
-  const batch = db.batch();
+  const updates = {};
   playersCache.forEach(p=>{
     let scoreAdd = 0;
     if(!p.isSpy && caughtSpy) scoreAdd = 10;
     if(p.isSpy && !caughtSpy) scoreAdd = 15;
-    batch.update(roomRef.collection('players').doc(p.id), { score: p.score+scoreAdd, lastScoreAdd: scoreAdd });
+    updates[`spyRooms/${roomCode}/players/${p.id}/score`] = p.score+scoreAdd;
+    updates[`spyRooms/${roomCode}/players/${p.id}/lastScoreAdd`] = scoreAdd;
   });
-  batch.update(roomRef, { status:'results', accusedIds: accused, caughtSpy, spyIds: spies });
-  await batch.commit();
+  updates[`spyRooms/${roomCode}/status`] = 'results';
+  updates[`spyRooms/${roomCode}/accusedIds`] = accused;
+  updates[`spyRooms/${roomCode}/caughtSpy`] = caughtSpy;
+  updates[`spyRooms/${roomCode}/spyIds`] = spies;
+  await db.ref().update(updates);
 }
 
 function showResults(data){
@@ -502,12 +511,15 @@ function showResults(data){
 }
 
 async function nextRound(){
-  const batch = db.batch();
+  const updates = {};
   playersCache.forEach(p=>{
-    batch.update(roomRef.collection('players').doc(p.id), { ready:false, vote:null, isSpy:false });
+    updates[`spyRooms/${roomCode}/players/${p.id}/ready`] = false;
+    updates[`spyRooms/${roomCode}/players/${p.id}/vote`] = null;
+    updates[`spyRooms/${roomCode}/players/${p.id}/isSpy`] = false;
   });
-  batch.update(roomRef, { status:'lobby', round: (roomCache.round||1)+1 });
-  await batch.commit();
+  updates[`spyRooms/${roomCode}/status`] = 'lobby';
+  updates[`spyRooms/${roomCode}/round`] = (roomCache.round||1)+1;
+  await db.ref().update(updates);
   showScreen('lobbyScreen');
 }
 document.addEventListener('keydown', (e)=>{
