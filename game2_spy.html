@@ -364,12 +364,21 @@ function handleRoomUpdate(data){
 }
 
 /* ---------- START ROUND (host assigns roles) ---------- */
+function shuffleArray(arr){
+  const a = [...arr];
+  for(let i=a.length-1; i>0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
 async function startRound(){
   if(playersCache.length<3){ alert('تحتاج 3 لاعبين على الأقل'); return; }
   const words = roomCache.words;
   const word = words[Math.floor(Math.random()*words.length)];
   const spyCount = roomCache.spyCount || 1;
-  const shuffled = [...playersCache].sort(()=>Math.random()-0.5);
+  const shuffled = shuffleArray(playersCache);
   const spies = shuffled.slice(0, spyCount).map(p=>p.id);
 
   const updates = {};
