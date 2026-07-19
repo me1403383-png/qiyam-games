@@ -113,6 +113,10 @@ input[type=text], select{width:100%; padding:12px 14px; border-radius:6px; borde
     <h1 class="title">غرفة الانتظار</h1>
     <p class="subtitle">شارك هذا الرمز مع اللاعبين</p>
     <div class="code-display" id="lobbyCode">----</div>
+    <div id="qrWrap" style="text-align:center; margin-bottom:14px;">
+      <img id="qrImage" src="" alt="QR" style="width:160px; height:160px; border:6px solid #fff; border-radius:8px; box-shadow:0 4px 10px rgba(0,0,0,.2);">
+      <p class="small">امسح الرمز بكاميرا الجوال للدخول مباشرة</p>
+    </div>
     <ul class="player-list" id="playerList"></ul>
     <p class="small" id="lobbyHint">بانتظار انضمام اللاعبين... (الحد الأدنى 3 لاعبين)</p>
     <div class="btn-row hidden" id="hostStartWrap">
@@ -246,6 +250,18 @@ let discussInterval = null;
 function genCode(){ return String(Math.floor(1000+Math.random()*9000)); }
 function genId(){ return 'p_'+Math.random().toString(36).slice(2,10); }
 
+/* auto-fill join code from ?join=CODE in URL (from QR scan) */
+(function autoFillJoinCode(){
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('join');
+  if(code){
+    document.addEventListener('DOMContentLoaded', ()=>{
+      document.getElementById('joinCodeInput').value = code;
+      document.getElementById('joinNameInput').focus();
+    });
+  }
+})();
+
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.add('hidden'));
   document.getElementById(id).classList.remove('hidden');
@@ -270,7 +286,7 @@ async function createRoom(){
       discussSeconds:120, createdAt: Date.now()
     });
     await roomRef.child('players').child(playerId).set({
-      name, score:0, ready:false, vote:null, isSpy:false, joinedAt: Date.now()
+      name, score:0, ready:false, vote:null, isSpy:false, joinedAt: Date.now(), online:true
     });
     console.log('تم إنشاء الغرفة بنجاح ✅');
     enterLobby();
@@ -291,7 +307,7 @@ async function joinRoom(){
   if(!snap.exists()){ err.textContent='لا توجد غرفة بهذا الرمز'; return; }
   roomCode = code; roomRef = ref; playerId = genId(); playerName = name; isHost = false;
   await roomRef.child('players').child(playerId).set({
-    name, score:0, ready:false, vote:null, isSpy:false, joinedAt: Date.now()
+    name, score:0, ready:false, vote:null, isSpy:false, joinedAt: Date.now(), online:true
   });
   enterLobby();
 }
@@ -299,9 +315,31 @@ async function joinRoom(){
 /* ---------- LOBBY ---------- */
 function enterLobby(){
   document.getElementById('lobbyCode').textContent = roomCode;
+  const joinUrl = window.location.origin + window.location.pathname + '?join=' + roomCode;
+  document.getElementById('qrImage').src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(joinUrl);
   showScreen('lobbyScreen');
   listenRoom();
   listenPlayers();
+  setupPresence();
+}
+
+/* ---------- PRESENCE (online/offline tracking) ---------- */
+function setupPresence(){
+  const myPresenceRef = roomRef.child('players').child(playerId).child('online');
+  const connectedRef = db.ref('.info/connected');
+  connectedRef.on('value', (snap)=>{
+    if(snap.val()===true){
+      myPresenceRef.onDisconnect().set(false);
+      myPresenceRef.set(true);
+    }
+  });
+}
+
+async function kickPlayer(id){
+  if(!isHost) return;
+  if(id===playerId){ alert('لا يمكنك استبعاد نفسك'); return; }
+  if(!confirm('هل تريد استبعاد هذا اللاعب من الغرفة؟')) return;
+  await roomRef.child('players').child(id).remove();
 }
 
 function listenRoom(){
@@ -332,7 +370,15 @@ function listenPlayers(){
 
 function renderLobbyPlayers(){
   const list = document.getElementById('playerList');
-  list.innerHTML = playersCache.map(p=>`<li>${p.name} ${roomCache && p.id===roomCache.hostId?'👑':''}</li>`).join('');
+  list.innerHTML = playersCache.map(p=>{
+    const isHostP = roomCache && p.id===roomCache.hostId;
+    const online = p.online!==false;
+    const dot = `<span style="display:inline-block; width:9px; height:9px; border-radius:50%; margin-left:6px; background:${online?'#3aa15c':'#b5121b'};" title="${online?'متصل':'غير متصل'}"></span>`;
+    const kickBtn = (isHost && p.id!==playerId)
+      ? `<button class="btn btn-outline" style="padding:4px 10px; font-size:.8rem;" onclick="kickPlayer('${p.id}')">استبعاد ✕</button>`
+      : '';
+    return `<li>${dot}${p.name} ${isHostP?'👑':''} <span style="display:flex; gap:6px; align-items:center;">${kickBtn}</span></li>`;
+  }).join('');
 }
 
 let roomCache = null;
