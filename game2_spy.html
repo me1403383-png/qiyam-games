@@ -645,6 +645,7 @@ function enterDiscuss(data){
 async function goToVote(){
   discussToken++;
   clearInterval(discussInterval);
+  resultsLocked = false;
   await roomRef.update({ status:'vote' });
 }
 
@@ -666,10 +667,13 @@ async function castVote(targetId){
   await roomRef.child('players').child(playerId).update({ vote: targetId });
   document.getElementById('voteStatus').textContent = 'تم التصويت! بانتظار البقية...';
 }
+let resultsLocked = false;
 async function checkVotesComplete(){
   if(!isHost) return;
   if(roomCache.status!=='vote') return;
+  if(resultsLocked) return;
   if(playersCache.length>0 && playersCache.every(p=>p.vote)){
+    resultsLocked = true;
     await computeResults();
   }
 }
