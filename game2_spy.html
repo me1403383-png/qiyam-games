@@ -64,6 +64,9 @@ input[type=text], select{width:100%; padding:12px 14px; border-radius:6px; borde
 .result-lose{background:#fbe3e1; color:var(--red-dark); border:2px solid var(--red-dark);}
 
 .typewriter-line{border-bottom:1px dashed var(--line); margin:14px 0;}
+#floatingStatusBar{position:fixed; top:10px; left:10px; background:rgba(43,38,32,.9); color:#f3e9d2; border-radius:8px; padding:8px 12px; font-size:.8rem; z-index:200; max-width:200px;}
+#floatingStatusBar .fp-row{display:flex; align-items:center; gap:6px; justify-content:space-between; padding:2px 0;}
+#floatingStatusBar .fp-dot{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
 </style>
 </head>
 <body>
@@ -82,7 +85,7 @@ input[type=text], select{width:100%; padding:12px 14px; border-radius:6px; borde
     <input type="text" id="joinCodeInput" placeholder="مثال: 4821" maxlength="6">
     <label class="field">اسمك</label>
     <input type="text" id="joinNameInput" placeholder="اكتب اسمك">
-    <button class="btn btn-outline" style="width:100%;" onclick="joinRoom()">انضمام للغرفة</button>
+    <button class="btn btn-outline" id="joinBtn" style="width:100%;" onclick="joinRoom()">انضمام للغرفة</button>
     <p class="small" id="homeError"></p>
   </div>
 </div>
@@ -101,6 +104,15 @@ input[type=text], select{width:100%; padding:12px 14px; border-radius:6px; borde
       <option value="1">جاسوس واحد</option>
       <option value="2">جاسوسان</option>
     </select>
+    <label class="field" style="margin-top:14px;">مدة النقاش</label>
+    <select id="discussTimeSelect" onchange="toggleCustomTime()">
+      <option value="60">دقيقة واحدة</option>
+      <option value="120" selected>دقيقتان</option>
+      <option value="180">3 دقائق</option>
+      <option value="custom">مدة مخصصة (بالثواني)</option>
+      <option value="0">بلا وقت محدد</option>
+    </select>
+    <input type="text" id="customTimeInput" placeholder="اكتب عدد الثواني" class="hidden" inputmode="numeric">
     <label class="field" style="margin-top:14px;">اسمك (المضيف)</label>
     <input type="text" id="hostNameInput" placeholder="اكتب اسمك">
     <button class="btn btn-red" style="width:100%; margin-top:6px;" onclick="createRoom()">إنشاء الغرفة</button>
@@ -132,7 +144,7 @@ input[type=text], select{width:100%; padding:12px 14px; border-radius:6px; borde
     <div id="roleContent" class="hidden">
       <div id="roleBox"></div>
       <p class="tap-hint">احفظ دورك جيداً ثم انتظر بدء النقاش</p>
-      <button class="btn btn-outline" style="margin-top:16px;" onclick="markReady()">أنا جاهز ✅</button>
+      <button class="btn btn-outline" id="readyBtn" style="margin-top:16px;" onclick="markReady()">أنا جاهز ✅</button>
       <p class="small" id="readyStatus"></p>
     </div>
   </div>
@@ -172,6 +184,10 @@ input[type=text], select{width:100%; padding:12px 14px; border-radius:6px; borde
     </div>
   </div>
 </div>
+
+</div>
+
+<div id="floatingStatusBar" class="hidden"></div>
 
 </div>
 
@@ -246,34 +262,75 @@ let roomRef = null, unsubRoom = null, unsubPlayers = null;
 let playersCache = [];
 let myRole = null; // {isSpy, word}
 let discussInterval = null;
+let discussToken = 0;
+
+/* ---------- SESSION PERSISTENCE (survive reload/close) ---------- */
+function saveSession(){
+  try{ localStorage.setItem('spyGameSession', JSON.stringify({roomCode, playerId, playerName, isHost})); }catch(e){}
+}
+function loadSession(){
+  try{ return JSON.parse(localStorage.getItem('spyGameSession')); }catch(e){ return null; }
+}
+function clearSession(){
+  try{ localStorage.removeItem('spyGameSession'); }catch(e){}
+}
+async function tryRestoreSession(){
+  const s = loadSession();
+  if(!s || !s.roomCode || !s.playerId) return false;
+  try{
+    const ref = db.ref('spyRooms/'+s.roomCode);
+    const snap = await ref.once('value');
+    const data = snap.val();
+    if(!data || !data.players || !data.players[s.playerId]){ clearSession(); return false; }
+    roomCode = s.roomCode; playerId = s.playerId; playerName = s.playerName; isHost = s.isHost;
+    roomRef = ref;
+    enterLobby();
+    return true;
+  } catch(e){ clearSession(); return false; }
+}
 
 function genCode(){ return String(Math.floor(1000+Math.random()*9000)); }
 function genId(){ return 'p_'+Math.random().toString(36).slice(2,10); }
 
-/* auto-fill join code from ?join=CODE in URL (from QR scan) */
-(function autoFillJoinCode(){
-  const params = new URLSearchParams(window.location.search);
-  const code = params.get('join');
-  if(code){
-    document.addEventListener('DOMContentLoaded', ()=>{
+/* auto-fill join code from ?join=CODE in URL (from QR scan), or restore prior session */
+(function initOnLoad(){
+  document.addEventListener('DOMContentLoaded', async ()=>{
+    const restored = await tryRestoreSession();
+    if(restored) return;
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('join');
+    if(code){
       document.getElementById('joinCodeInput').value = code;
       document.getElementById('joinNameInput').focus();
-    });
-  }
+    }
+  });
 })();
 
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.add('hidden'));
   document.getElementById(id).classList.remove('hidden');
+  if(typeof renderFloatingStatus==='function') renderFloatingStatus();
 }
 function showCreate(){ showScreen('createScreen'); }
 
 /* ---------- CREATE ROOM ---------- */
+function toggleCustomTime(){
+  const isCustom = document.getElementById('discussTimeSelect').value==='custom';
+  document.getElementById('customTimeInput').classList.toggle('hidden', !isCustom);
+}
+
 async function createRoom(){
   const name = document.getElementById('hostNameInput').value.trim();
   if(!name){ alert('اكتب اسمك أولاً'); return; }
   const category = document.getElementById('categorySelect').value;
   const spyCount = parseInt(document.getElementById('spyCountSelect').value);
+  const timeSel = document.getElementById('discussTimeSelect').value;
+  let discussSeconds;
+  if(timeSel==='custom'){
+    discussSeconds = parseInt(document.getElementById('customTimeInput').value) || 120;
+  } else {
+    discussSeconds = parseInt(timeSel); // 0 = unlimited
+  }
   roomCode = genCode();
   playerId = genId(); playerName = name; isHost = true;
 
@@ -283,12 +340,13 @@ async function createRoom(){
     await roomRef.set({
       status:'lobby', category, words: wordBanks[category], spyCount,
       hostId: playerId, round:1,
-      discussSeconds:120, createdAt: Date.now()
+      discussSeconds, createdAt: Date.now()
     });
     await roomRef.child('players').child(playerId).set({
       name, score:0, ready:false, vote:null, isSpy:false, joinedAt: Date.now(), online:true
     });
     console.log('تم إنشاء الغرفة بنجاح ✅');
+    saveSession();
     enterLobby();
   } catch(err){
     console.error('فشل إنشاء الغرفة:', err);
@@ -297,19 +355,38 @@ async function createRoom(){
 }
 
 /* ---------- JOIN ROOM ---------- */
+let isJoining = false;
 async function joinRoom(){
+  if(isJoining) return;
   const code = document.getElementById('joinCodeInput').value.trim();
   const name = document.getElementById('joinNameInput').value.trim();
   const err = document.getElementById('homeError');
+  err.textContent = '';
   if(!code || !name){ err.textContent='الرجاء إدخال الرمز والاسم'; return; }
-  const ref = db.ref('spyRooms/'+code);
-  const snap = await ref.once('value');
-  if(!snap.exists()){ err.textContent='لا توجد غرفة بهذا الرمز'; return; }
-  roomCode = code; roomRef = ref; playerId = genId(); playerName = name; isHost = false;
-  await roomRef.child('players').child(playerId).set({
-    name, score:0, ready:false, vote:null, isSpy:false, joinedAt: Date.now(), online:true
-  });
-  enterLobby();
+  isJoining = true;
+  const btn = document.getElementById('joinBtn');
+  btn.disabled = true; btn.textContent = 'جارٍ الانضمام...';
+  try{
+    const ref = db.ref('spyRooms/'+code);
+    roomCode = code; roomRef = ref; playerId = genId(); playerName = name; isHost = false;
+    // write player entry immediately (optimistic); verify room exists in background
+    const writePromise = roomRef.child('players').child(playerId).set({
+      name, score:0, ready:false, vote:null, isSpy:false, joinedAt: Date.now(), online:true
+    });
+    const snap = await ref.child('status').once('value');
+    if(!snap.exists()){
+      err.textContent='لا توجد غرفة بهذا الرمز';
+      roomRef.child('players').child(playerId).remove();
+      btn.disabled = false; btn.textContent = 'انضمام للغرفة'; isJoining = false;
+      return;
+    }
+    await writePromise;
+    saveSession();
+    enterLobby();
+  } catch(e){
+    err.textContent = 'حدث خطأ، حاول مرة أخرى';
+    btn.disabled = false; btn.textContent = 'انضمام للغرفة'; isJoining = false;
+  }
 }
 
 /* ---------- LOBBY ---------- */
@@ -358,6 +435,7 @@ function listenPlayers(){
     const data = snap.val() || {};
     playersCache = Object.keys(data).map(id=>({ id, ...data[id] }));
     renderLobbyPlayers();
+    renderFloatingStatus();
     if(document.getElementById('roleScreen').classList.contains('hidden')===false){
       renderReadyStatus();
     }
@@ -366,6 +444,21 @@ function listenPlayers(){
     }
   };
   playersRef.on('value', unsubPlayers);
+}
+
+function renderFloatingStatus(){
+  const bar = document.getElementById('floatingStatusBar');
+  const onLobby = document.getElementById('lobbyScreen').classList.contains('hidden')===false;
+  const onHome = document.getElementById('homeScreen').classList.contains('hidden')===false;
+  const onCreate = document.getElementById('createScreen').classList.contains('hidden')===false;
+  if(onLobby || onHome || onCreate){ bar.classList.add('hidden'); return; }
+  bar.classList.remove('hidden');
+  bar.innerHTML = playersCache.map(p=>{
+    const online = p.online!==false;
+    const kick = (isHost && p.id!==playerId)
+      ? `<span style="cursor:pointer; color:#e08a86;" onclick="kickPlayer('${p.id}')">✕</span>` : '';
+    return `<div class="fp-row"><span class="fp-dot" style="background:${online?'#3aa15c':'#b5121b'}"></span><span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.name}</span>${kick}</div>`;
+  }).join('');
 }
 
 function renderLobbyPlayers(){
@@ -382,14 +475,23 @@ function renderLobbyPlayers(){
 }
 
 let roomCache = null;
+let lastStatus = null;
 function handleRoomUpdate(data){
   roomCache = data;
+  if(lastStatus==='discuss' && data.status!=='discuss'){
+    discussToken++;
+    clearInterval(discussInterval);
+  }
+  lastStatus = data.status;
   if(data.status==='lobby'){
     const hostWrap = document.getElementById('hostStartWrap');
     hostWrap.classList.toggle('hidden', !isHost);
-    document.getElementById('lobbyHint').textContent = playersCache.length<3
-      ? `بانتظار انضمام اللاعبين... (${playersCache.length}/3 كحد أدنى)`
-      : (isHost ? 'يمكنك الآن بدء الجولة!' : 'بانتظار المضيف لبدء الجولة...');
+    const count = playersCache.length;
+    let hint;
+    if(count<3) hint = `بانتظار انضمام اللاعبين... (${count}/3 كحد أدنى)`;
+    else if(count % 2 === 0) hint = `العدد الحالي (${count}) زوجي — أضف أو استبعد لاعباً ليصبح فردياً`;
+    else hint = (isHost ? 'يمكنك الآن بدء الجولة!' : 'بانتظار المضيف لبدء الجولة...');
+    document.getElementById('lobbyHint').textContent = hint;
   } else if(data.status==='reveal'){
     if(document.getElementById('roleScreen').classList.contains('hidden')){
       enterRoleScreen(data);
@@ -421,6 +523,10 @@ function shuffleArray(arr){
 
 async function startRound(){
   if(playersCache.length<3){ alert('تحتاج 3 لاعبين على الأقل'); return; }
+  if(playersCache.length % 2 === 0){
+    alert('عدد اللاعبين يجب أن يكون فردياً (3، 5، 7...) لتفادي التعادل في التصويت. أضف أو استبعد لاعباً واحداً.');
+    return;
+  }
   const words = roomCache.words;
   const word = words[Math.floor(Math.random()*words.length)];
   const spyCount = roomCache.spyCount || 1;
@@ -444,6 +550,9 @@ function enterRoleScreen(data){
   document.getElementById('roleCover').classList.remove('hidden');
   document.getElementById('roleContent').classList.add('hidden');
   document.getElementById('roleCover').onclick = ()=> revealRole(data);
+  const btn = document.getElementById('readyBtn');
+  btn.disabled = false; btn.style.opacity = '1';
+  document.getElementById('readyStatus').textContent = '';
 }
 function revealRole(data){
   data = data || roomCache;
@@ -459,8 +568,11 @@ function revealRole(data){
   }
 }
 async function markReady(){
-  await roomRef.child('players').child(playerId).update({ ready:true });
+  const btn = document.getElementById('readyBtn');
+  btn.disabled = true; btn.style.opacity = '.5';
+  document.getElementById('roleBox').innerHTML = `<div class="role-spy" style="border-style:solid;">✅ تم الحفظ<br><span style="font-size:1rem; font-weight:400;">أُخفيت المعلومة الآن لسريتها</span></div>`;
   document.getElementById('readyStatus').textContent = 'بانتظار بقية اللاعبين...';
+  await roomRef.child('players').child(playerId).update({ ready:true });
   if(isHost) checkAllReady();
 }
 function renderReadyStatus(){
@@ -477,10 +589,17 @@ async function checkAllReady(){
 /* ---------- DISCUSSION ---------- */
 function enterDiscuss(data){
   showScreen('discussScreen');
-  const total = data.discussSeconds || 120;
-  const startedAt = data.discussStartedAt || Date.now();
   clearInterval(discussInterval);
+  discussToken++;
+  const myToken = discussToken;
+  const total = data.discussSeconds; // null/0 = unlimited
+  const startedAt = data.discussStartedAt || Date.now();
+  if(!total){
+    document.getElementById('discussTimer').textContent = '∞';
+    return;
+  }
   discussInterval = setInterval(()=>{
+    if(myToken!==discussToken){ clearInterval(discussInterval); return; }
     const elapsed = Math.floor((Date.now()-startedAt)/1000);
     const left = Math.max(0, total-elapsed);
     document.getElementById('discussTimer').textContent = left;
@@ -489,6 +608,7 @@ function enterDiscuss(data){
   }, 1000);
 }
 async function goToVote(){
+  discussToken++;
   clearInterval(discussInterval);
   await roomRef.update({ status:'vote' });
 }
@@ -550,14 +670,18 @@ function showResults(data){
   const detail = document.getElementById('resultDetail');
   const spyNames = playersCache.filter(p=>data.spyIds.includes(p.id)).map(p=>p.name).join('، ');
   const accusedNames = playersCache.filter(p=>data.accusedIds.includes(p.id)).map(p=>p.name).join('، ');
+  const isTie = data.accusedIds.length>1;
   if(data.caughtSpy){
     banner.className='result-banner result-win'; banner.textContent='✅ تم كشف الجاسوس!';
     winSound();
+  } else if(isTie){
+    banner.className='result-banner result-lose'; banner.textContent='⚖️ تعادل في التصويت — نجا الجاسوس!';
+    loseSound();
   } else {
     banner.className='result-banner result-lose'; banner.textContent='❌ نجا الجاسوس!';
     loseSound();
   }
-  detail.innerHTML = `الجاسوس كان: <b>${spyNames}</b><br>تم اتهام: <b>${accusedNames}</b><br>الكلمة السرية كانت: <b>${data.currentWord}</b>`;
+  detail.innerHTML = `الجاسوس كان: <b>${spyNames}</b><br>${isTie?'الأصوات تعادلت بين':'تم اتهام'}: <b>${accusedNames}</b><br>الكلمة السرية كانت: <b>${data.currentWord}</b>`;
   const scoreList = document.getElementById('scoreList');
   const sorted = [...playersCache].sort((a,b)=>b.score-a.score);
   scoreList.innerHTML = sorted.map(p=>`<li>${p.name} <span>${p.score} نقطة</span></li>`).join('');
