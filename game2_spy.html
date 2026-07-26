@@ -67,6 +67,7 @@ input[type=text], select{width:100%; padding:12px 14px; border-radius:6px; borde
 #floatingStatusBar{position:fixed; top:10px; left:10px; background:rgba(43,38,32,.9); color:#f3e9d2; border-radius:8px; padding:8px 12px; font-size:.8rem; z-index:200; max-width:200px;}
 #floatingStatusBar .fp-row{display:flex; align-items:center; gap:6px; justify-content:space-between; padding:2px 0;}
 #floatingStatusBar .fp-dot{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
+#leaveGameBtn{position:fixed; top:10px; right:10px; z-index:200; background:var(--red); color:#fff; border:none; padding:8px 14px; border-radius:8px; font-family:'Cairo'; font-weight:700; font-size:.8rem; cursor:pointer; box-shadow:0 3px 8px rgba(0,0,0,.3);}
 </style>
 </head>
 <body>
@@ -188,6 +189,7 @@ input[type=text], select{width:100%; padding:12px 14px; border-radius:6px; borde
 </div>
 
 <div id="floatingStatusBar" class="hidden"></div>
+<button id="leaveGameBtn" class="hidden" onclick="leaveGame()">🚪 خروج من الغرفة</button>
 
 </div>
 
@@ -446,11 +448,44 @@ function listenPlayers(){
   playersRef.on('value', unsubPlayers);
 }
 
+async function leaveGame(){
+  if(!roomRef || !playerId) return;
+  if(!confirm('هل تريد الخروج من هذه الغرفة؟')) return;
+  try{
+    // turn off presence auto-write
+    roomRef.child('players').child(playerId).child('online').onDisconnect().cancel();
+    // if host, hand off hosting to another player, or delete room if empty
+    if(isHost){
+      const remaining = playersCache.filter(p=>p.id!==playerId);
+      if(remaining.length>0){
+        await roomRef.update({ hostId: remaining[0].id });
+      } else {
+        await roomRef.remove();
+      }
+    }
+    await roomRef.child('players').child(playerId).remove();
+  } catch(e){ /* ignore, proceed to leave locally regardless */ }
+
+  // detach listeners
+  if(unsubRoom) roomRef.off('value', unsubRoom);
+  if(unsubPlayers) roomRef.child('players').off('value', unsubPlayers);
+  clearInterval(discussInterval);
+  clearSession();
+
+  roomCode = null; playerId = null; playerName = null; isHost = false;
+  roomRef = null; playersCache = []; roomCache = null; lastStatus = null;
+
+  showScreen('homeScreen');
+}
+
 function renderFloatingStatus(){
   const bar = document.getElementById('floatingStatusBar');
+  const leaveBtn = document.getElementById('leaveGameBtn');
   const onLobby = document.getElementById('lobbyScreen').classList.contains('hidden')===false;
   const onHome = document.getElementById('homeScreen').classList.contains('hidden')===false;
   const onCreate = document.getElementById('createScreen').classList.contains('hidden')===false;
+  const inRoom = !onHome && !onCreate;
+  leaveBtn.classList.toggle('hidden', !inRoom);
   if(onLobby || onHome || onCreate){ bar.classList.add('hidden'); return; }
   bar.classList.remove('hidden');
   bar.innerHTML = playersCache.map(p=>{
