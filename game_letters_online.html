@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>مسابقة حروف الثقافية - أونلاين</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@500;600;700;800&family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg1:#0f0c29; --card:#20204a; --card-2:#282860;
+  --teal:#2ec4b6; --purple:#8a5cf6; --orange:#ff8c42; --pink:#ff5c8a;
+  --text:#f2f4fb; --muted:#9b93c9; --cta:#ffd166;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{min-height:100%; font-family:'Tajawal',sans-serif; background:var(--bg1); color:var(--text);}
+body{background:radial-gradient(circle at 20% 10%, rgba(138,92,246,.18), transparent 45%), radial-gradient(circle at 80% 90%, rgba(67,97,238,.15), transparent 45%), var(--bg1);}
+#appRoot{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px 12px;}
+.screen{width:100%; display:flex; align-items:center; justify-content:center;}
+.hidden{display:none !important;}
+
+.card{background:var(--card); border-radius:10px; padding:30px 26px; max-width:520px; width:100%; box-shadow:6px 6px 0 #000; border:3px solid var(--purple);}
+h1.title{font-family:'Baloo Bhaijaan 2'; font-size:1.7rem; text-align:center; margin-bottom:8px; color:var(--cta); text-shadow:3px 3px 0 rgba(0,0,0,.4);}
+.subtitle{text-align:center; color:var(--muted); margin-bottom:20px; font-size:.9rem;}
+label.field{display:block; margin-bottom:6px; color:var(--muted); font-weight:700; font-size:.9rem;}
+input[type=text]{width:100%; padding:11px 14px; border-radius:8px; border:1.5px solid rgba(255,255,255,.15); background:#161632; color:var(--text); font-family:'Tajawal'; font-size:1rem; margin-bottom:14px;}
+select{width:100%; padding:11px; border-radius:8px; border:1.5px solid rgba(255,255,255,.15); background:#161632; color:var(--text); font-family:'Tajawal'; font-size:1rem; margin-bottom:14px;}
+.btn{display:inline-block; padding:13px 24px; border-radius:8px; border:3px solid #000; font-family:'Tajawal'; font-weight:700; font-size:1rem; cursor:pointer; box-shadow:4px 4px 0 #000; transition:transform .1s;}
+.btn:active{transform:translate(3px,3px); box-shadow:1px 1px 0 #000;}
+.btn-cta{background:var(--cta); color:#3a2a08;}
+.btn-outline{background:var(--card-2); color:var(--text);}
+.btn-row{display:flex; gap:10px; justify-content:center; margin-top:14px; flex-wrap:wrap;}
+.small{font-size:.8rem; color:var(--muted); text-align:center; margin-top:8px;}
+.divider{text-align:center; color:var(--muted); margin:16px 0; font-size:.85rem; position:relative;}
+.divider::before,.divider::after{content:''; position:absolute; top:50%; width:38%; height:1px; background:rgba(255,255,255,.15);}
+.divider::before{right:0;} .divider::after{left:0;}
+.err-text{color:var(--pink); text-align:center; font-size:.85rem; min-height:20px; margin-bottom:6px;}
+
+.team-pick-row{display:flex; gap:14px; margin-bottom:14px;}
+.team-pick-btn{flex:1; padding:20px 10px; border-radius:10px; border:3px solid #000; font-family:'Baloo Bhaijaan 2'; font-weight:700; font-size:1.05rem; color:#fff; cursor:pointer; box-shadow:4px 4px 0 #000; text-align:center;}
+.team-pick-btn:active{transform:translate(3px,3px); box-shadow:1px 1px 0 #000;}
+.team-pick-btn.sel{outline:4px solid var(--cta);}
+
+.code-display{text-align:center; font-family:'Baloo Bhaijaan 2'; font-size:2.2rem; letter-spacing:6px; color:var(--cta); margin:8px 0; font-weight:700;}
+#qrImage{display:block; margin:10px auto; width:150px; height:150px; border:6px solid #fff; border-radius:8px;}
+.player-list{list-style:none; margin:12px 0; display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto;}
+.player-list li{background:var(--card-2); border-radius:6px; padding:8px 12px; display:flex; justify-content:space-between; font-weight:700; font-size:.9rem;}
+
+/* IN-GAME */
+#gameScreenWrap{width:100%; max-width:1200px; margin:0 auto; padding:10px;}
+.top-bar{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;}
+.live-badge{background:#22c55e; color:#fff; padding:5px 14px; border-radius:8px; font-size:.8rem; font-weight:700; border:2px solid rgba(0,0,0,.25);}
+.hud{display:flex; justify-content:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;}
+.score-pill{padding:9px 16px; border-radius:8px; font-weight:800; font-size:.88rem; box-shadow:3px 3px 0 rgba(0,0,0,.3); border:2px solid rgba(0,0,0,.25);}
+.status-line{text-align:center; font-family:'Baloo Bhaijaan 2'; font-size:1.1rem; color:var(--cta); margin-bottom:10px; min-height:28px;}
+
+.hex-board-wrap{position:relative; margin:0 auto 16px; overflow:auto; padding:10px; max-width:100%;}
+.hex-board{position:relative; margin:0 auto;}
+.hex-cell{position:absolute; width:88px; height:100px; clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); background:var(--card-2); display:flex; align-items:center; justify-content:center; font-family:'Baloo Bhaijaan 2'; font-weight:700; font-size:1.7rem; cursor:default; border:2px solid rgba(0,0,0,.4); transition:background .35s, transform .2s;}
+.hex-cell.clickable{cursor:pointer;}
+.hex-cell.clickable:hover{ transform:scale(1.06); filter:brightness(1.12); z-index:5; }
+.hex-cell.blocked{background:#33304a; color:#6b7280;}
+.hex-cell.special{background:linear-gradient(160deg,#4a2e8a,#2a1a5c); color:var(--cta); border-color:var(--purple); animation:specialGlow 1.8s ease-in-out infinite;}
+@keyframes specialGlow{ 0%,100%{box-shadow:0 0 8px rgba(138,92,246,.4);} 50%{box-shadow:0 0 24px rgba(138,92,246,.9);} }
+.hex-cell .hex-inner-num{font-size:1.3rem; opacity:.85;}
+.hex-cell.claim-pop{ animation:claimPop .5s ease-out; }
+@keyframes claimPop{ 0%{transform:scale(1);} 35%{transform:scale(1.28); filter:brightness(1.4);} 60%{transform:scale(.92);} 100%{transform:scale(1);} }
+
+.buzz-wrap{display:flex; justify-content:center; margin:14px 0;}
+.buzz-btn{width:160px; height:160px; border-radius:50%; border:5px solid #000; font-family:'Baloo Bhaijaan 2'; font-weight:800; font-size:1.3rem; color:#fff; cursor:pointer; box-shadow:0 8px 0 #000; transition:transform .08s; opacity:.35; pointer-events:none;}
+.buzz-btn.armed{opacity:1; pointer-events:auto; animation:buzzPulse .8s infinite;}
+@keyframes buzzPulse{ 0%,100%{box-shadow:0 8px 0 #000, 0 0 0 0 rgba(255,255,255,.5);} 50%{box-shadow:0 8px 0 #000, 0 0 0 18px rgba(255,255,255,0);} }
+.buzz-btn:active{transform:translateY(6px);}
+.buzz-btn.locked-out{opacity:.15; pointer-events:none;}
+
+.q-modal{position:fixed; inset:0; background:rgba(8,10,16,.85); display:flex; align-items:center; justify-content:center; z-index:100; padding:16px;}
+.q-card{background:var(--card); border-radius:10px; padding:26px 22px; max-width:480px; width:100%; text-align:center; box-shadow:6px 6px 0 #000; border:3px solid var(--purple);}
+.q-badge{font-family:'Baloo Bhaijaan 2'; font-size:1rem; background:rgba(255,255,255,.08); padding:8px 16px; border-radius:8px; display:inline-block; margin-bottom:12px; border:2px solid rgba(0,0,0,.3);}
+.q-text{font-size:1.1rem; margin-bottom:16px; line-height:1.6;}
+.q-answer{background:rgba(46,196,182,.12); border:2px dashed var(--teal); border-radius:10px; padding:12px; font-size:1.15rem; font-weight:800; color:var(--teal); margin-bottom:14px;}
+.judge-row{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:10px;}
+.locked-info{font-weight:800; color:var(--cta); margin-bottom:10px; font-size:1.05rem;}
+
+#winScreen{position:fixed; inset:0; background:radial-gradient(circle at 50% 20%, rgba(36,36,74,.55), rgba(15,12,41,.65)); display:flex; align-items:flex-start; justify-content:center; padding-top:8vh; z-index:200;}
+.win-card{background:rgba(15,12,41,.9); border:3px solid var(--purple); border-radius:14px; padding:24px 34px; box-shadow:6px 6px 0 #000; text-align:center;}
+.win-card h1{font-family:'Baloo Bhaijaan 2'; font-size:2.2rem; color:var(--cta); text-shadow:4px 4px 0 rgba(0,0,0,.4);}
+.win-card p{font-size:1.1rem; margin-top:8px; color:#fff;}
+
+.floating-status{position:fixed; top:8px; left:8px; background:rgba(20,15,40,.9); border-radius:8px; padding:6px 10px; font-size:.75rem; z-index:150; max-width:150px;}
+.floating-status .fp-row{display:flex; align-items:center; gap:6px; padding:2px 0;}
+.fp-dot{width:7px; height:7px; border-radius:50%; flex-shrink:0;}
+</style>
+</head>
+<body>
+<div id="appRoot">
+
+<!-- HOME -->
+<div class="screen" id="homeScreen">
+  <div class="card">
+    <h1 class="title">⚡ حروف الثقافية أونلاين</h1>
+    <p class="subtitle">من الأسرع بالضغط؟ العب مع أصدقائك من أجهزتكم</p>
+    <button class="btn btn-cta" style="width:100%;" onclick="showCreate()">إنشاء غرفة جديدة (مضيف)</button>
+    <div class="divider">أو</div>
+    <label class="field">رمز الغرفة</label>
+    <input type="text" id="joinCodeInput" placeholder="مثال: 4821" maxlength="6">
+    <label class="field">اسمك</label>
+    <input type="text" id="joinNameInput" placeholder="اكتب اسمك">
+    <p class="err-text" id="homeError"></p>
+    <button class="btn btn-outline" style="width:100%;" id="joinBtn" onclick="joinRoom()">انضمام للغرفة</button>
+  </div>
+</div>
+
+<!-- CREATE -->
+<div class="screen hidden" id="createScreen">
+  <div class="card">
+    <h1 class="title">إعداد الغرفة</h1>
+    <label class="field">اسمك (المضيف)</label>
+    <input type="text" id="hostNameInput" placeholder="اكتب اسمك">
+    <label class="field">اختر الجولة</label>
+    <select id="roundSelect">
+      <option value="1">الجولة 1</option>
+      <option value="2">الجولة 2</option>
+      <option value="3">الجولة 3</option>
+      <option value="4">الجولة 4</option>
+      <option value="5">الجولة 5</option>
+      <option value="6">الجولة 6</option>
+    </select>
+    <button class="btn btn-cta" style="width:100%;" onclick="createRoom()">إنشاء الغرفة</button>
+  </div>
+</div>
+
+<!-- TEAM PICK (players only) -->
+<div class="screen hidden" id="teamPickScreen">
+  <div class="card">
+    <h1 class="title">اختر فريقك</h1>
+    <p class="subtitle">فريقك يحدد أي طرفَي الشبكة عليه التوصيل بينهما</p>
+    <div class="team-pick-row">
+      <div class="team-pick-btn" id="pickTeamA" style="background:var(--teal);" onclick="pickTeam(0)">الفريق الفيروزي<br><span style="font-size:.8rem;">⟷ يمين↔يسار</span></div>
+      <div class="team-pick-btn" id="pickTeamB" style="background:var(--purple);" onclick="pickTeam(1)">الفريق البنفسجي<br><span style="font-size:.8rem;">↕ أعلى↕أسفل</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- LOBBY -->
+<div class="screen hidden" id="lobbyScreen">
+  <div class="card">
+    <h1 class="title">غرفة الانتظار</h1>
+    <div class="code-display" id="lobbyCode">----</div>
+    <img id="qrImage" src="" alt="QR">
+    <ul class="player-list" id="playerList"></ul>
+    <p class="small" id="lobbyHint"></p>
+    <div class="btn-row hidden" id="hostStartWrap">
+      <button class="btn btn-cta" onclick="startGame()">ابدأ اللعبة ⚡</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME -->
+<div class="screen hidden" id="gameScreenWrap">
+<div id="gameContent">
+  <div class="top-bar">
+    <div class="live-badge">🔴 مباشر — جولة <span id="roundLabelNum"></span></div>
+    <button class="btn btn-outline" style="padding:6px 14px; font-size:.8rem;" onclick="leaveRoom()">🚪 خروج</button>
+  </div>
+  <div class="hud" id="scoreHud"></div>
+  <div class="status-line" id="statusLine"></div>
+
+  <div class="hex-board-wrap">
+    <div class="hex-board" id="hexBoard"></div>
+  </div>
+
+  <div class="buzz-wrap" id="buzzWrap">
+    <button class="buzz-btn" id="buzzBtn" onclick="pressBuzz()">اضغط!</button>
+  </div>
+</div>
+</div>
+
+<!-- QUESTION MODAL (visible on all devices) -->
+<div class="q-modal hidden" id="qModal">
+  <div class="q-card">
+    <div class="q-badge" id="qBadge"></div>
+    <div class="q-text" id="qText"></div>
+    <div class="locked-info hidden" id="lockedInfo"></div>
+    <div class="q-answer hidden" id="qAnswerBox"></div>
+    <div class="btn-row hidden" id="hostRevealRow">
+      <button class="btn btn-cta" onclick="hostRevealAnswer()">إظهار الجواب 👁️</button>
+    </div>
+    <div class="judge-row hidden" id="judgeRow"></div>
+  </div>
+</div>
+
+<div class="floating-status hidden" id="floatingStatus"></div>
+
+<!-- WIN SCREEN -->
+<div id="winScreen" class="hidden">
+  <div class="win-card">
+    <h1 id="winnerName"></h1>
+    <p id="winnerSub"></p>
+    <div class="btn-row">
+      <button class="btn btn-cta" onclick="location.reload()">غرفة جديدة 🔄</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+/* ================= FIREBASE ================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyBvmmTH77r77YYEfMnLdRRMSw6aK8eUJmM",
+  authDomain: "qiyam-games.firebaseapp.com",
+  databaseURL: "https://qiyam-games-default-rtdb.asia-southeast1.firebasedatabase.app/",
+  projectId: "qiyam-games",
+  storageBucket: "qiyam-games.firebasestorage.app",
+  messagingSenderId: "4829303446",
+  appId: "1:4829303446:web:44c6a19e73da1b29d6e8b7"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+/* ================= DATA ================= */
+const ROUNDS = {"1": [["أ", "أبو الأنبياء", "إبراهيم عليه السلام"], ["ب", "من أصابع اليد", "بنصر"], ["ت", "من صلاة التطوع", "التراويح"], ["ث", "قبيلة أرسل إليهم نبي الله صالح عليه السلام", "ثمود"], ["ج", "أكمل الحديث: (يد الله مع .....)", "الجماعة"], ["ح", "امرأة ليست من ذرية آدم", "حواء"], ["خ", "حيوان محرم أكله", "خنزير"], ["د", "النبي الذي أنزل عليه الزبور", "داود عليه السلام"], ["ذ", "حشرة ذكرت في القرآن الكريم", "الذبابة"], ["ر", "مهنة قديمة امتهنها كثير من الأنبياء", "رعي الغنم"], ["ز", "نبات عروقة غليظة، وطعمه حار", "زنجبيل"], ["س", "من أسماء يوم القيامة", "الساعة"], ["ش", "أكمل المثل: (أهل مكة أدرى بـ", "شعابها"], ["ص", "مقدمة كل شيء يسمى", "صدر"], ["ض", "وقت من أوقات النهار", "ضحى"], ["ط", "يطلق على ما عبد من دون الله تعالى وهو راضٍ", "طاغوت"], ["ظ", "الجور والطغيان يسمى", "ظلم"], ["ع", "اسم عم النبي صلى الله عليه وسلم أبو طالب", "عبد مناف"], ["غ", "من أسماء يوم القيامة", "الغاشية"], ["ف", "من أسماء القرآن الكريم، يدل على أنه فصل بين الحق والباطل", "الفرقان"], ["ق", "الاسم القديم للبحر الأحمر", "القُلزم"], ["ك", "نهر في الجنة", "الكوثر"], ["ل", "حديدة توضع في فم الفرس لقيادتها", "لجام"], ["م", "ما الشيء الذي يبلعنا، ونبلعه؟", "الماء"], ["ن", "أكمل المثل: (من صبر وتأنى", "نال ما تمنى"], ["هـ", "سورة باسم نبي.", "هود"], ["و", "العدد إذا كان فردًا يسمى .... ومن صلاة ....", "وتر"], ["ي", "النبي الذي لقب بذي النون", "يونس عليه السلام"]], "2": [["أ", "سورة في القرآن الكريم يطلق عليها أخت الطولتين", "الأعراف"], ["ب", "لفظ الزمهرير في القرآن الكريم يعني", "البرد الشديد"], ["ت", "حق الله على العبيد", "التوحيد"], ["ث", "في أي سنة فرض صيام رمضان", "الثانية من الهجرة"], ["ج", "رجل تنسب إليه كثير من الطرائف", "جحا"], ["ح", "غزوة للنبي صلى الله عليه وسلم، وقعت في السنة الثامنة بعد فتح مكة", "حنين"], ["خ", "صحابي من القادة لم يهزم في جاهلية ولا في إسلام", "خالد بن الوليد رضي الله عنه"], ["د", "يغفر للشهيد كل شيء إلا شيء واحد", "الدَّين"], ["ذ", "ضمير الجمع ( هم ) باللغات الإنجليزية ينطق", "ذم Them"], ["ر", "النفخة الأولى ليوم القيامة سميت في سورة النازعات بـ", "الراجفة"], ["ز", "صحابي ذكر اسمه في القرآن الكريم", "زيد بن حارثة رضي الله عنه"], ["س", "عمر النبي صلى الله عليه وسلم عندما ماتت أمه", "سبع سنوات"], ["ش", "العرق النابض الذي يحمل الدم من القلب إلى الجسد", "شريان"], ["ص", "عمود يقام في السفينة يشدُّ عليه الشِّراع", "صاري"], ["ض", "صفة وصف الله تعالى بها النصارى في القرآن الكريم", "الضالين"], ["ط", "ألف كيلو يساوي", "طن واحد"], ["ظ", "نهى الله تعالى عنه، وقال إن بعضه إثم", "الظن"], ["ع", "يوم مشهور نجى الله تعالى فيه موسى عليه السلام من فرعون", "عاشوراء"], ["غ", "بيت السيف يسمى", "الغمد"], ["ف", "ماذا يؤدي نقص الحديد في الدم", "فقر الدم"], ["ق", "يوجد في القمر ولا يوجد في الشمس", "القاف"], ["ك", "سؤال الذي تختلف إجابته دائما", "كم الساعة؟"], ["ل", "شيء في جسم الإنسان يسبب له المشاكل", "لسان"], ["م", "عالَم من خلوقات الله لم يفعلوا معصية قط، ويفعلون ما يأمرهم الله تعالى", "الملائكة"], ["ن", "نبي سميت سورة باسمه", "نوح عليه السلام"], ["هـ", "أم إسماعيل عليه السلام، وهي أم العرب", "هاجر"], ["و", "كل ما يتصوره الإنسان في داخله وهو غير صحيح", "وهم"], ["ي", "الطفل الذي فقد أباه يسمى", "يتيم"]], "3": [["أ", "أول من جمع القرآن الكريم من الصحابة رضي الله عنهم", "أبو بكر الصديق"], ["ب", "أكمل الحديث: (اتقوا النار ولو ...............)", "بشق تمرة"], ["ت", "عدد خزنة النار من الملائكة", "تسعة عشر"], ["ث", "الجماعة من الناس في اللغة العربية يطلق عليهم", "ثلة"], ["ج", "إحدى زوجات النبي صلى الله عليه وسلم", "جويرية بنت الحارث"], ["ح", "سورة في القرآن الكريم ذكر فيها سجدتان", "الحج"], ["خ", "عدد عيون النحلة", "خمس عيون"], ["د", "مكان المنافقين في النار", "الدرك الأسفل من النار"], ["ذ", "الأحداث التي تحدث في الوقت الحالي، تكون في المستقبل من ....", "الذكريات"], ["ر", "عمل يعد من الشرك", "الرياء"], ["ز", "أكبر بنات النبي صلى الله عليه وسلم", "زينب"], ["س", "كان النبي صلى الله عليه وسلم يقول عنه: (هذا خالي) وأحد العشرة المبشرين بالجنة، فمن هو؟", "سعد بن أبي وقاص رضي الله عنه"], ["ش", "نبي من العرب أرسل إلى أصحاب الأيكة", "شعيب عليه السلام"], ["ص", "عكس الوارد", "الصادر"], ["ض", "التزام الهدوء بعد التعرض لموقف يضيق به الصدر يسمى", "ضبط النفس"], ["ط", "إذا حذفنا منه الطاء أصبح عام", "طعام"], ["ظ", "الاسم القديم للمحيط الأطلسي عند العرب، كان يسمى بحر .....", "الظلمات"], ["ع", "أطلق عليه لقب خامس الخلفاء الراشدين", "عمر بن عبدالعزيز"], ["غ", "يطلق على مجاوزة الحد", "الغلو"], ["ف", "أطول عظمة في جسم الإنسان", "الفخذ"], ["ق", "وحدة وزن للألماس والأحجار الكريمة وتساوي 200 مليجرام", "قيراط"], ["ك", "حيوان يجوز الانتفاع به للحاجة، ويحرم بيعه.", "الكلب"], ["ل", "كتاب كُتب فيه كل شيء", "اللوح المحفوظ"], ["م", "الميتة التي ماتت بالضرب، ذكرت في سورة المائدة", "الموقوذة"], ["ن", "أكبر الطيور الجوارح ويأكل الجيف", "النسر"], ["هـ", "صاحب السلوكيات الطائشة يسمى", "همجي"], ["و", "أكمل المثل: (تعددت الأسباب و الموت ......", "واحد"], ["ي", "24 ساعة تساوي", "يوم"]], "4": [["أ", "إمام من أئمة أهل السنة والجماعة، وصاحب أحد المذاهب المشهورة", "أحمد بن حنبل"], ["ب", "عاصمة فرنسا", "باريس"], ["ت", "وصفها الله تعالى بخير الزاد", "التقوى"], ["ث", "مجموعة من النجوم في السماء تسمى", "الثريا"], ["ج", "سخرهم الله تعالى لسليمان عليه السلام", "الجن"], ["ح", "شيء يوجد في البحرين ولا يوجد في الكويت", "حرف الحاء"], ["خ", "جزء من الجملة يتم معناها", "الخبر"], ["د", "صوت النمل", "دبيب"], ["ذ", "رجل صالح كان ملكا على الأرض، ورد ذكره في القرآن الكريم", "ذو القرنين"], ["ر", "أهلك الله تعالى يوم عاد بـ", "ريح صرصر عاتية"], ["ز", "نبي صام عن الكلام ثلاثة أيام", "زكريا عليه السلام"], ["س", "لقب أطلق على خالد بن الوليد رضي الله عنه", "سيف الله المسلول"], ["ش", "وصفهم الله تعالى بأنهم في كل وادٍ يهيمون", "الشعراء"], ["ص", "اسم من أسماء يوم القيامة يدل على أنها تصم الآذان لشدتها", "الصاخة"], ["ض", "شيء وجداني في نفس الإنسان يؤدي إلى الشعور بالندم، وتمييز الصواب من الخطأ", "الضمير"], ["ط", "جبل كلم الله تعالى عنده موسى عليه السلام", "الطور"], ["ظ", "شيء يتبعك في النور ويختفي عنك في الظلام", "الظل"], ["ع", "رجل من ذرية إسماعيل عليه السلام تنتسب إليه العرب", "عدنان"], ["غ", "من أسماء الأسد", "الغضنفر"], ["ف", "صوت الأفعى يسمى", "فحيح"], ["ق", "معركة كانت بين المسلمين والفرس سنة 16 للهجرة", "القادسية"], ["ك", "لقب موسى عليه السلام", "كليم الله"], ["ل", "نبي من أنبياء الله وآمن بني آخر", "لوط آمن بإبراهيم عليهما السلام"], ["م", "أكثر الأسماء انتشارا في العالم", "محمد"], ["ن", "يظهر في النهار ويختفي في الليل، ويحضر في عيد رمضان، ويغيب في عيد الأضحى", "النون"], ["هـ", "تمليك الإنسان ماله لغيره في الحياة بلا عوض، يمسى", "هبة"], ["و", "من الثدييات التي تطير بالليل", "الوطواط"], ["ي", "شجرها أنبتها الله تعالى لنبي الله يونس عليه السلام", "يقطين"]], "5": [["أ", "من الحيوانات يطلق عليه أسامة", "الأسد"], ["ب", "من أسماء المسجد الأقصى", "بيت المقدس"], ["ت", "آخر غزوات النبي صلى الله عليه وسلم", "تبوك"], ["ث", "جزء من الثمانية يسمى", "ثمن"], ["ج", "من الملائكة", "جبريل عليه السلام"], ["ح", "ما أضيف إلى النبي صلى الله عليه وسلم من قول أو فعل أو وصف أو تقرير يسمى", "حديث"], ["خ", "قطعة من البحر تدخل في البر تسمى", "الخليج"], ["د", "ماء مالح لم يخرج من الأرض و لم ينزل من السماء", "دموع"], ["ذ", "اللقب الذي أطلق على إسماعيل عليه السلام", "الذبيح"], ["ر", "آخر النهار", "الراء"], ["ز", "لقب يطلق على سورتي البقرة وآل عمران", "الزهراوان"], ["س", "آخر الليل يسمى", "سَحَر"], ["ش", "سورة في القرآن الكريم في بيان مكانة النبي صلى الله عليه وسلم", "الشرح"], ["ص", "خمسة لا سادس لها", "الصلوات الخمس"], ["ض", "خلاف الشيء وعكسه يسمى", "ضد"], ["ط", "عبادة تعتبر من شروط الصلاة", "الطهارة"], ["ظ", "المعين والمساعد يسمى", "ظهير"], ["ع", "اسم أبي جهل", "عمرو بن هشام"], ["غ", "المكان الذي نزل فيه القرآن الكريم أول مرة", "غار حراء"], ["ف", "النخلة الصغيرة تمسى", "فسيلة"], ["ق", "أكبر أبناء النبي صلى الله عليه وسلم", "القاسم"], ["ك", "يطلق على العشب", "الكلأ"], ["ل", "يستخرج من البحر و يباع بأغلى الأثمان", "اللؤلؤ"], ["م", "يوجد في البحار وذكره الله تعالى في سورة الرحمن", "المرجان"], ["ن", "ماذا يوجد في نهاية الزمان؟", "النون"], ["هـ", "يطلق على صوت البعير المنبعث من حنجرته", "هدير"], ["و", "يكتبها الإنسان لما بعد وفاته، تسمى", "وصية"], ["ي", "من الأحجار النادرة لونه أحمر، وسعره غالي", "ياقوت"]], "6": [["أ", "لقب أطلق على النبي صلى الله عليه وسلم قبل الإسلام", "الأمين"], ["ب", "دولة في أمريكا اللاتينية هي الدولة الوحيدة التي تتكلم البرتغالية", "البرازيل"], ["ت", "من اسرع الأسماك", "التونة"], ["ث", "غاز عديم اللون والرائحة من مكونات الغلاف الجوي", "ثاني أكسيد الكربون"], ["ج", "عالم خفي", "الجن"], ["ح", "من زوجات النبي صلى الله عليه وسلم وأبوها صحابي", "حفصة بنت عمر رضي الله عنهما"], ["خ", "بحر لا ماء فيه يوجد في", "الخريطة"], ["د", "لو قطعنا خرطوم الفيل ماذا يطلع؟", "دم"], ["ذ", "المجموعة من الإبل تسمى", "الذود"], ["ر", "الذاكرة العشوائية في الحاسب الآلي تسمى", "رام Ram"], ["ز", "يطلق على الوقت قليلا كان أم كثيرا", "الزمن"], ["س", "شيء إذا أكلته كاملًا تستفيد منه، ولكن إذا أكلت نصفه ستموت", "سمسم"], ["ش", "من أعمال السحرة، يخدع بها الناس تمسى", "شعوذة"], ["ص", "العذاب الذي وقع على قوم ثمود", "الصيحة أو الصاعقة"], ["ض", "من صلوات النوافل", "الضحى"], ["ط", "البحيرة التي سيشربها يأجوج و مأجوج في آخر الزمان", "طبرية"], ["ظ", "أكمل المثل: (ما حك جلد مثل ........)", "ظفرك"], ["ع", "أول من أسلم من الصبيان", "علي بن أبي طالب رضي الله عنه"], ["غ", "ظلمة الليل تسمى", "غسق"], ["ف", "أسرع الحيوانات البرية", "الفهد"], ["ق", "أرجله من خشب، وراسه من ذهب", "القمح"], ["ك", "مصطلح يطلق على كميّة المادّة المكوّنة للجسم", "كتلة"], ["ل", "علبة تجعل فيها مادة متفجرة كالبارود أو الديناميت تستعمل في الحروب", "لغم"], ["م", "له أسنان ولا يعض", "المشط"], ["ن", "شيء يجري لا يمشي", "النهر"], ["هـ", "الخليفة الذي كان يحج عاما و يغزو عاما", "هارون الرشيد"], ["و", "إذا اشتدت المعركة يقال: حمي ...........", "الوطيس"], ["ي", "أكمل المثل : إذا أردت أن تطاع , فأمر بما ........", "يستطاع"]]};
+const TEAM_DEFS = [
+  {name:'الفريق الفيروزي', hex:'#2ec4b6'},
+  {name:'الفريق البنفسجي', hex:'#8a5cf6'},
+];
+const HEX_ROWS = 6, HEX_COLS = 6;
+const SPECIAL_ICONS = { mine:'💣', gift:'🎁', challenge:'⚡', penalty:'🚫' };
+const DARE_LIST = [
+  'قف على رِجل واحدة وعُد إلى 10 دون أن تفقد توازنك.',
+  'قلّد صوت 3 حيوانات مختلفة ودَع الجميع يخمّنها.',
+  'اذكر أسماء 5 دول عربية خلال 10 ثوانٍ فقط.',
+  'ارقص لمدة 10 ثوانٍ بلا موسيقى أمام الجميع.',
+  'كل ملعقة صغيرة من الليمون أو أي طعم حامض متوفر دون تعبير الاشمئزاز.',
+  'احفظ ترتيب 5 أشياء يذكرها لك المضيف خلال 10 ثوانٍ، ثم رتّبها من الذاكرة.',
+  'مثّل مشهداً قصيراً لشخص يشعر بالفرح الشديد دون كلام.',
+  'اعقد لسانك: كرّر "خيط حرير على حرير خيط" 3 مرات بسرعة دون خطأ.',
+  'قف واقفز 10 مرات وأنت تُصفّق فوق رأسك.',
+  'اذكر كلمة تبدأ بآخر حرف من اسمك خلال 5 ثوانٍ.',
+];
+
+/* ================= AUDIO (safe) ================= */
+let actx = null;
+function getActx(){ if(actx) return actx; try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ actx=false; } return actx; }
+function beep(freq,dur,type='sine',vol=.25,delay=0){
+  try{
+    const ctx = getActx(); if(!ctx) return;
+    const t = ctx.currentTime + delay;
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t+dur);
+  } catch(e){}
+}
+function buzzSound(){ beep(1200,.08,'square',.3); }
+function correctSound(){ [523,659,784,1046].forEach((f,i)=>beep(f,.2,'sine',.2,i*.06)); }
+function wrongSound(){ beep(180,.25,'square',.2); }
+function bonusSound(){ [660,880,1046].forEach((f,i)=>beep(f,.2,'sine',.2,i*.06)); }
+function fanfare(){ [392,523,659,784,988,1174].forEach((f,i)=>beep(f,.4,'triangle',.25,i*.14)); }
+
+/* ================= STATE ================= */
+let roomCode=null, playerId=null, playerName=null, isHost=false, myTeam=null;
+let roomRef=null, unsubRoom=null, unsubPlayers=null;
+let playersCache=[];
+let roomCache=null;
+let lastArmedCellKey=null; // to detect new "armed" events and reset buzz UI
+
+function genCode(){ return String(Math.floor(1000+Math.random()*9000)); }
+function genId(){ return 'p_'+Math.random().toString(36).slice(2,10); }
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+  renderFloatingStatus();
+}
+function showCreate(){ showScreen('createScreen'); }
+
+/* restore session / autofill join code from QR */
+document.addEventListener('DOMContentLoaded', ()=>{
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('join');
+  if(code){ document.getElementById('joinCodeInput').value = code; document.getElementById('joinNameInput').focus(); }
+});
+
+/* ================= BUILD BOARD DATA (host only) ================= */
+function buildBoardCells(round){
+  const totalCells = HEX_ROWS*HEX_COLS;
+  const specialCount = 8;
+  const pool = [...ROUNDS[String(round)]].sort(()=>Math.random()-0.5);
+  const data = pool; // all 28 letters on regular cells
+  const hiddenIdx = new Set();
+  while(hiddenIdx.size<9){ hiddenIdx.add(Math.floor(Math.random()*data.length)); }
+  const hiddenNums = [1,2,3,4,5,6,7,8,9].sort(()=>Math.random()-0.5);
+  let hiddenCounter=0;
+
+  const allPositions=[];
+  for(let r=0;r<HEX_ROWS;r++) for(let c=0;c<HEX_COLS;c++) allPositions.push([r,c]);
+  const shuffledPositions = [...allPositions].sort(()=>Math.random()-0.5);
+  const specialPositions = shuffledPositions.slice(0,specialCount);
+  const specialTypes = ['mine','mine','gift','gift','challenge','challenge','penalty','penalty'].sort(()=>Math.random()-0.5);
+  const specialMap = new Map();
+  specialPositions.forEach((p,i)=> specialMap.set(p[0]+'_'+p[1], specialTypes[i]));
+  const specialNums = [10,11,12,13,14,15,16,17].sort(()=>Math.random()-0.5);
+  let specialCounter=0;
+
+  const cells = [];
+  let dataIdx=0;
+  for(let r=0;r<HEX_ROWS;r++){
+    for(let c=0;c<HEX_COLS;c++){
+      const key = r+'_'+c;
+      if(specialMap.has(key)){
+        cells.push({ r,c, special:specialMap.get(key), specialNum:specialNums[specialCounter++],
+          letter:null, question:null, answer:null, hiddenNum:null, used:false, owner:null, blocked:false });
+        continue;
+      }
+      const item = data[dataIdx];
+      const isHidden = hiddenIdx.has(dataIdx);
+      cells.push({ r,c, special:null, letter:item[0], question:item[1], answer:item[2],
+        hiddenNum: isHidden?hiddenNums[hiddenCounter++]:null, used:false, owner:null, blocked:false });
+      dataIdx++;
+    }
+  }
+  return cells;
+}
+
+/* ================= CREATE ROOM ================= */
+async function createRoom(){
+  const name = document.getElementById('hostNameInput').value.trim();
+  if(!name){ alert('اكتب اسمك أولاً'); return; }
+  const round = parseInt(document.getElementById('roundSelect').value);
+  roomCode = genCode();
+  playerId = genId(); playerName = name; isHost = true; myTeam = 0;
+
+  const cells = buildBoardCells(round);
+  roomRef = db.ref('hexRooms/'+roomCode);
+  try{
+    await roomRef.set({
+      status:'lobby', round, hostId:playerId,
+      teams:{ 0:{name:TEAM_DEFS[0].name, hex:TEAM_DEFS[0].hex, score:0}, 1:{name:TEAM_DEFS[1].name, hex:TEAM_DEFS[1].hex, score:0} },
+      cells, activeCell:null, armedAt:null, lockedBy:null, lockedTeam:null,
+      streakTeam:null, streakCount:0, createdAt: Date.now()
+    });
+    await roomRef.child('players').child(playerId).set({ name, team:0, online:true, joinedAt:Date.now() });
+    enterLobby();
+  } catch(e){ alert('فشل إنشاء الغرفة: '+e.message); }
+}
+
+/* ================= JOIN ROOM ================= */
+let isJoining=false;
+async function joinRoom(){
+  if(isJoining) return;
+  const code = document.getElementById('joinCodeInput').value.trim();
+  const name = document.getElementById('joinNameInput').value.trim();
+  const err = document.getElementById('homeError');
+  err.textContent='';
+  if(!code || !name){ err.textContent='الرجاء إدخال الرمز والاسم'; return; }
+  isJoining=true;
+  const btn = document.getElementById('joinBtn');
+  btn.disabled=true; btn.textContent='جارٍ الانضمام...';
+  try{
+    const ref = db.ref('hexRooms/'+code);
+    const snap = await ref.child('status').once('value');
+    if(!snap.exists()){
+      err.textContent='لا توجد غرفة بهذا الرمز';
+      btn.disabled=false; btn.textContent='انضمام للغرفة'; isJoining=false;
+      return;
+    }
+    roomCode=code; roomRef=ref; playerId=genId(); playerName=name; isHost=false;
+    showScreen('teamPickScreen');
+  } catch(e){
+    err.textContent='حدث خطأ، حاول مرة أخرى';
+    btn.disabled=false; btn.textContent='انضمام للغرفة'; isJoining=false;
+  }
+}
+async function pickTeam(teamIdx){
+  myTeam = teamIdx;
+  await roomRef.child('players').child(playerId).set({ name:playerName, team:teamIdx, online:true, joinedAt:Date.now() });
+  enterLobby();
+}
+
+/* ================= LOBBY ================= */
+function enterLobby(){
+  document.getElementById('lobbyCode').textContent = roomCode;
+  const joinUrl = window.location.origin + window.location.pathname + '?join=' + roomCode;
+  document.getElementById('qrImage').src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(joinUrl);
+  showScreen('lobbyScreen');
+  listenRoom();
+  listenPlayers();
+  setupPresence();
+}
+function setupPresence(){
+  const presenceRef = roomRef.child('players').child(playerId).child('online');
+  db.ref('.info/connected').on('value', snap=>{
+    if(snap.val()===true){ presenceRef.onDisconnect().set(false); presenceRef.set(true); }
+  });
+}
+function listenRoom(){
+  if(unsubRoom) roomRef.off('value', unsubRoom);
+  unsubRoom = snap=>{ const data=snap.val(); if(data) handleRoomUpdate(data); };
+  roomRef.on('value', unsubRoom);
+}
+function listenPlayers(){
+  const pRef = roomRef.child('players');
+  if(unsubPlayers) pRef.off('value', unsubPlayers);
+  unsubPlayers = snap=>{
+    const data = snap.val()||{};
+    playersCache = Object.keys(data).map(id=>({id, ...data[id]}));
+    renderLobbyPlayers();
+    renderFloatingStatus();
+  };
+  pRef.on('value', unsubPlayers);
+}
+function renderLobbyPlayers(){
+  const list = document.getElementById('playerList');
+  list.innerHTML = playersCache.map(p=>{
+    const teamColor = p.team!==undefined ? TEAM_DEFS[p.team].hex : '#888';
+    const dot = p.online!==false ? '🟢' : '🔴';
+    return `<li><span>${dot} ${p.name}</span><span style="color:${teamColor}">${p.team!==undefined?TEAM_DEFS[p.team].name:''}</span></li>`;
+  }).join('');
+  document.getElementById('hostStartWrap').classList.toggle('hidden', !isHost);
+  const teamCounts = [0,0];
+  playersCache.forEach(p=>{ if(p.team===0) teamCounts[0]++; if(p.team===1) teamCounts[1]++; });
+  document.getElementById('lobbyHint').textContent = `الفيروزي: ${teamCounts[0]} لاعب | البنفسجي: ${teamCounts[1]} لاعب`;
+}
+async function startGame(){
+  await roomRef.update({ status:'playing' });
+}
+
+/* ================= ROOM STATE HANDLING ================= */
+function handleRoomUpdate(data){
+  roomCache = data;
+  if(data.status==='lobby'){
+    renderLobbyPlayers();
+  } else if(data.status==='playing' || data.status==='armed' || data.status==='locked' || data.status==='resolved'){
+    if(document.getElementById('gameScreenWrap').classList.contains('hidden')){
+      document.getElementById('lobbyScreen').classList.add('hidden');
+      document.getElementById('createScreen').classList.add('hidden');
+      document.getElementById('teamPickScreen').classList.add('hidden');
+      showScreen('gameScreenWrap');
+      document.getElementById('gameScreenWrap').classList.remove('hidden');
+    }
+    document.getElementById('roundLabelNum').textContent = data.round;
+    renderScoreHud(data);
+    renderBoard(data);
+    updateBuzzUI(data);
+    updateQuestionModal(data);
+    updateStatusLine(data);
+  } else if(data.status==='finished'){
+    document.getElementById('gameScreenWrap').classList.remove('hidden'); // keep board visible behind win screen
+    renderBoard(data);
+    renderScoreHud(data);
+    showWinnerUI(data);
+  }
+}
+
+function renderScoreHud(data){
+  const hud = document.getElementById('scoreHud');
+  const t = data.teams;
+  hud.innerHTML = [0,1].map(i=>`
+    <div class="score-pill" style="background:${t[i].hex}; border-color:${t[i].hex};">
+      ${t[i].name}: ${t[i].score}
+    </div>
+  `).join('');
+}
+function updateStatusLine(data){
+  const line = document.getElementById('statusLine');
+  if(data.status==='playing'){
+    line.textContent = isHost ? 'اضغط على أي خلية لفتح سؤالها' : 'بانتظار المضيف ليفتح خلية...';
+  } else if(data.status==='armed'){
+    line.textContent = '⚡ الآن! اضغط زر الطنين بسرعة ⚡';
+  } else if(data.status==='locked'){
+    const p = playersCache.find(pp=>pp.id===data.lockedBy);
+    line.textContent = (p? p.name : 'لاعب') + ' ضغط أولاً!';
+  }
+}
+
+/* ================= BOARD RENDER ================= */
+function renderBoard(data){
+  const board = document.getElementById('hexBoard');
+  const hexW=88, hexH=100, hStep=hexW, vStep=hexH*0.75, rowShift=hexW/2;
+  function hx(r,c){ return c*hStep + (r%2===1?rowShift:0); }
+  function hy(r){ return r*vStep; }
+  const boardW = HEX_COLS*hStep + rowShift + hexW*0.15;
+  const boardH = HEX_ROWS*vStep + hexH*0.3;
+  board.style.width = boardW+'px'; board.style.height = boardH+'px';
+
+  let html='';
+  data.cells.forEach((h,idx)=>{
+    const x=hx(h.r,h.c), y=hy(h.r);
+    const cellId = `hc-${h.r}-${h.c}`;
+    const canClick = isHost && data.status==='playing' && !h.used && !h.blocked;
+    if(h.special){
+      let bg='linear-gradient(160deg,#4a2e8a,#2a1a5c)'; let cls='special';
+      if(h.owner!==null && h.owner!==undefined){ bg=data.teams[h.owner].hex; cls=''; }
+      else if(h.used){ cls+=' blocked'; bg='#33304a'; }
+      const label = (h.owner!==null && h.owner!==undefined) ? '✔' : (h.used ? (SPECIAL_ICONS[h.special]||'✔') : h.specialNum);
+      html += `<div class="hex-cell ${cls} ${canClick?'clickable':''}" id="${cellId}" style="left:${x}px; top:${y}px; background:${bg};" onclick="${canClick?`hostOpenCell(${h.r},${h.c})`:''}">${label}</div>`;
+      return;
+    }
+    let bg='var(--card-2)'; let cls='';
+    if(h.blocked) cls='blocked';
+    else if(h.owner!==null && h.owner!==undefined) bg=data.teams[h.owner].hex;
+    const content = (h.hiddenNum && !h.used) ? `<span class="hex-inner-num">${h.hiddenNum}</span>` : h.letter;
+    html += `<div class="hex-cell ${cls} ${canClick?'clickable':''}" id="${cellId}" style="left:${x}px; top:${y}px; background:${bg};" onclick="${canClick?`hostOpenCell(${h.r},${h.c})`:''}">${content}</div>`;
+  });
+  board.innerHTML = html;
+}
+
+/* ================= HOST: OPEN A CELL ================= */
+async function hostOpenCell(r,c){
+  const data = roomCache;
+  if(!isHost || data.status!=='playing') return;
+  const idx = r*HEX_COLS+c;
+  const h = data.cells[idx];
+  if(!h || h.used || h.blocked) return;
+
+  if(h.special && h.special!=='challenge'){
+    await resolveInstantSpecial(idx, h);
+    return;
+  }
+  if(h.special==='challenge'){
+    await openDareOnline(idx, h);
+    return;
+  }
+  // normal question -> arm buzzers for everyone
+  await roomRef.update({
+    status:'armed', activeCellIdx:idx,
+    armedAt: firebase.database.ServerValue.TIMESTAMP,
+    lockedBy:null, lockedTeam:null
+  });
+}
+
+/* ================= BUZZ HANDLING ================= */
+function updateBuzzUI(data){
+  const btn = document.getElementById('buzzBtn');
+  if(isHost){ document.getElementById('buzzWrap').classList.add('hidden'); return; }
+  document.getElementById('buzzWrap').classList.remove('hidden');
+  if(data.status==='armed' && !data.lockedBy){
+    btn.classList.add('armed'); btn.classList.remove('locked-out');
+    btn.style.background = TEAM_DEFS[myTeam].hex;
+  } else if(data.status==='locked'){
+    btn.classList.remove('armed');
+    btn.classList.toggle('locked-out', data.lockedBy!==playerId);
+  } else {
+    btn.classList.remove('armed','locked-out');
+  }
+}
+async function pressBuzz(){
+  if(!roomCache || roomCache.status!=='armed') return;
+  buzzSound();
+  try{
+    await roomRef.child('lockedBy').transaction(current=>{
+      if(current===null || current===undefined) return playerId;
+      return; // abort, someone already locked it
+    });
+    // re-check: did we actually win the lock?
+    const snap = await roomRef.child('lockedBy').once('value');
+    if(snap.val()===playerId){
+      await roomRef.update({ status:'locked', lockedTeam:myTeam });
+    }
+  } catch(e){}
+}
+
+/* ================= QUESTION MODAL SYNC ================= */
+function updateQuestionModal(data){
+  const modal = document.getElementById('qModal');
+  if(data.status==='armed' || data.status==='locked'){
+    modal.classList.remove('hidden');
+    const idx = data.activeCellIdx;
+    const h = data.cells[idx];
+    document.getElementById('qBadge').textContent = 'حرف '+h.letter + (h.hiddenNum?' (كان مخفياً برقم '+h.hiddenNum+')':'');
+    document.getElementById('qText').textContent = h.question;
+    document.getElementById('qAnswerBox').classList.add('hidden');
+    document.getElementById('lockedInfo').classList.toggle('hidden', data.status!=='locked');
+    if(data.status==='locked'){
+      const p = playersCache.find(pp=>pp.id===data.lockedBy);
+      document.getElementById('lockedInfo').textContent = '🔒 '+(p?p.name:'لاعب')+' ضغط أولاً! ('+TEAM_DEFS[data.lockedTeam].name+')';
+    }
+    document.getElementById('hostRevealRow').classList.toggle('hidden', !(isHost && data.status==='locked'));
+    document.getElementById('judgeRow').classList.add('hidden');
+  } else if(data.status==='playing'){
+    modal.classList.add('hidden');
+  }
+}
+async function hostRevealAnswer(){
+  const data = roomCache;
+  const h = data.cells[data.activeCellIdx];
+  document.getElementById('qAnswerBox').textContent = h.answer;
+  document.getElementById('qAnswerBox').classList.remove('hidden');
+  document.getElementById('hostRevealRow').classList.add('hidden');
+  const row = document.getElementById('judgeRow');
+  const t = data.teams[data.lockedTeam];
+  row.classList.remove('hidden');
+  row.innerHTML = `
+    <button class="btn" style="background:${t.hex}; color:#fff;" onclick="hostJudge(true)">✅ صحيح</button>
+    <button class="btn btn-outline" onclick="hostJudge(false)">✗ خطأ</button>
+  `;
+}
+async function hostJudge(isCorrect){
+  const data = roomCache;
+  const idx = data.activeCellIdx;
+  const cells = [...data.cells];
+  const h = {...cells[idx]};
+  h.used = true;
+  const updates = {};
+  if(isCorrect){
+    h.owner = data.lockedTeam;
+    let pts = h.special==='challenge' ? 2 : 1;
+    updates['teams/'+data.lockedTeam+'/score'] = data.teams[data.lockedTeam].score + pts;
+    updates['streakTeam'] = data.lockedTeam;
+    updates['streakCount'] = (data.streakTeam===data.lockedTeam ? (data.streakCount||0)+1 : 1);
+  } else {
+    h.blocked = true;
+    updates['streakTeam'] = null; updates['streakCount'] = 0;
+  }
+  cells[idx] = h;
+  updates['cells'] = cells;
+  updates['status'] = 'playing';
+  updates['activeCellIdx'] = null;
+  updates['lockedBy'] = null;
+  updates['lockedTeam'] = null;
+  updates['armedAt'] = null;
+  await roomRef.update(updates);
+
+  pulseCellClaim(h.r,h.c);
+  if(isCorrect) correctSound(); else wrongSound();
+
+  await checkGameEnd(cells, isCorrect ? data.lockedTeam : null);
+}
+
+/* ================= INSTANT SPECIALS (host resolves) ================= */
+async function resolveInstantSpecial(idx, h){
+  const data = roomCache;
+  const teamIdx = Math.floor(Math.random()*2); // no fixed turn in buzzer mode
+  const cells = [...data.cells];
+  const nh = {...h}; nh.used = true;
+  const updates = {};
+  if(h.special==='mine'){
+    nh.blocked = true;
+    updates['teams/'+teamIdx+'/score'] = Math.max(0, data.teams[teamIdx].score-1);
+    wrongSound();
+  } else if(h.special==='gift'){
+    nh.owner = teamIdx;
+    updates['teams/'+teamIdx+'/score'] = data.teams[teamIdx].score+1;
+    bonusSound();
+  } else if(h.special==='penalty'){
+    nh.blocked = true;
+    wrongSound();
+  }
+  cells[idx] = nh;
+  updates['cells'] = cells;
+  await roomRef.update(updates);
+  pulseCellClaim(h.r,h.c);
+  await checkGameEnd(cells, h.special==='gift' ? teamIdx : null);
+}
+
+async function openDareOnline(idx, h){
+  const data = roomCache;
+  const teamIdx = Math.floor(Math.random()*2);
+  const dareText = DARE_LIST[Math.floor(Math.random()*DARE_LIST.length)];
+  await roomRef.update({
+    status:'locked', activeCellIdx:idx, lockedBy:'host-dare', lockedTeam:teamIdx,
+    dareText, dareActive:true
+  });
+}
+// extend question modal rendering for dares
+const _origUpdateQuestionModal = updateQuestionModal;
+updateQuestionModal = function(data){
+  if(data.dareActive && (data.status==='locked')){
+    const modal = document.getElementById('qModal');
+    modal.classList.remove('hidden');
+    const t = data.teams[data.lockedTeam];
+    document.getElementById('qBadge').textContent = '⚡ تحدٍّ حركي/ذهني';
+    document.getElementById('qText').textContent = data.dareText;
+    document.getElementById('qAnswerBox').classList.add('hidden');
+    document.getElementById('lockedInfo').classList.remove('hidden');
+    document.getElementById('lockedInfo').textContent = 'على فريق: '+t.name;
+    document.getElementById('hostRevealRow').classList.add('hidden');
+    const row = document.getElementById('judgeRow');
+    row.classList.toggle('hidden', !isHost);
+    if(isHost){
+      row.innerHTML = `
+        <button class="btn" style="background:${t.hex}; color:#fff;" onclick="hostJudgeDare(true)">✅ أنجزه</button>
+        <button class="btn btn-outline" onclick="hostJudgeDare(false)">❌ لم يُنجزه</button>
+      `;
+    }
+    return;
+  }
+  _origUpdateQuestionModal(data);
+};
+async function hostJudgeDare(success){
+  const data = roomCache;
+  const idx = data.activeCellIdx;
+  const cells = [...data.cells];
+  const h = {...cells[idx]};
+  h.used = true;
+  const updates = {};
+  if(success){
+    h.owner = data.lockedTeam;
+    updates['teams/'+data.lockedTeam+'/score'] = data.teams[data.lockedTeam].score + 2;
+    correctSound();
+  } else {
+    h.blocked = true;
+    wrongSound();
+  }
+  cells[idx]=h;
+  updates['cells']=cells;
+  updates['status']='playing';
+  updates['activeCellIdx']=null;
+  updates['lockedBy']=null;
+  updates['lockedTeam']=null;
+  updates['dareActive']=false;
+  updates['dareText']=null;
+  await roomRef.update(updates);
+  pulseCellClaim(h.r,h.c);
+  await checkGameEnd(cells, success ? data.lockedTeam : null);
+}
+
+function pulseCellClaim(r,c){
+  const el = document.getElementById(`hc-${r}-${c}`);
+  if(!el) return;
+  el.classList.remove('claim-pop'); void el.offsetWidth; el.classList.add('claim-pop');
+}
+
+/* ================= WIN CHECK (host computes) ================= */
+function cellAt(cells,r,c){ return cells.find(x=>x.r===r&&x.c===c); }
+function checkHexWin(cells, teamIdx){
+  const start = teamIdx===0 ? cells.filter(h=>h.c===0 && h.owner===0) : cells.filter(h=>h.r===0 && h.owner===1);
+  const visited = new Set(); const queue=[...start];
+  start.forEach(h=>visited.add(h.r+'_'+h.c));
+  while(queue.length){
+    const cur = queue.shift();
+    if(teamIdx===0 && cur.c===HEX_COLS-1) return true;
+    if(teamIdx===1 && cur.r===HEX_ROWS-1) return true;
+    const nbs = cur.r%2===0
+      ? [[cur.r,cur.c-1],[cur.r,cur.c+1],[cur.r-1,cur.c-1],[cur.r-1,cur.c],[cur.r+1,cur.c-1],[cur.r+1,cur.c]]
+      : [[cur.r,cur.c-1],[cur.r,cur.c+1],[cur.r-1,cur.c],[cur.r-1,cur.c+1],[cur.r+1,cur.c],[cur.r+1,cur.c+1]];
+    nbs.forEach(([nr,nc])=>{
+      const key=nr+'_'+nc; if(visited.has(key)) return;
+      const nb = cellAt(cells,nr,nc);
+      if(nb && nb.owner===teamIdx){ visited.add(key); queue.push(nb); }
+    });
+  }
+  return false;
+}
+async function checkGameEnd(cells, maybeWinnerTeam){
+  if(!isHost) return;
+  if(maybeWinnerTeam!==null && checkHexWin(cells, maybeWinnerTeam)){
+    setTimeout(()=> finishGame(maybeWinnerTeam), 700);
+    return;
+  }
+  if(cells.every(c=>c.used)){
+    setTimeout(()=> finishGame(null), 700);
+  }
+}
+async function finishGame(teamIdx){
+  await roomRef.update({ status:'finished', winnerTeam: teamIdx===null ? null : teamIdx });
+}
+function showWinnerUI(data){
+  if(!document.getElementById('winScreen').classList.contains('hidden')) return;
+  let text, sub;
+  if(data.winnerTeam===null || data.winnerTeam===undefined){
+    const s0=data.teams[0].score, s1=data.teams[1].score;
+    if(s0===s1){ text='🤝 تعادل!'; sub='انتهت كل الخلايا دون اتصال كامل — تعادل بالنقاط ('+s0+')'; }
+    else{
+      const w = s0>s1?0:1;
+      text = data.teams[w].name+' 🎉';
+      sub = 'لا اتصال كامل، لكن الفوز بالنقاط! ('+data.teams[w].score+' نقطة)';
+    }
+  } else {
+    text = data.teams[data.winnerTeam].name+' 🎉';
+    sub = 'وصل بين طرفيه أولاً! 🏆';
+  }
+  document.getElementById('winnerName').textContent = text;
+  document.getElementById('winnerSub').textContent = sub;
+  document.getElementById('winScreen').classList.remove('hidden');
+  fanfare();
+}
+
+/* ================= LEAVE ROOM ================= */
+async function leaveRoom(){
+  if(!roomRef || !playerId) return;
+  if(!confirm('هل تريد الخروج من الغرفة؟')) return;
+  try{
+    roomRef.child('players').child(playerId).child('online').onDisconnect().cancel();
+    await roomRef.child('players').child(playerId).remove();
+  } catch(e){}
+  if(unsubRoom) roomRef.off('value', unsubRoom);
+  if(unsubPlayers) roomRef.child('players').off('value', unsubPlayers);
+  location.reload();
+}
+
+/* ================= FLOATING STATUS (connection dots) ================= */
+function renderFloatingStatus(){
+  const bar = document.getElementById('floatingStatus');
+  const onHome = !document.getElementById('homeScreen').classList.contains('hidden');
+  const onCreate = !document.getElementById('createScreen').classList.contains('hidden');
+  const onTeamPick = !document.getElementById('teamPickScreen').classList.contains('hidden');
+  if(onHome||onCreate||onTeamPick || playersCache.length===0){ bar.classList.add('hidden'); return; }
+  bar.classList.remove('hidden');
+  bar.innerHTML = playersCache.map(p=>{
+    const online = p.online!==false;
+    return `<div class="fp-row"><span class="fp-dot" style="background:${online?'#3aa15c':'#b5121b'}"></span><span>${p.name}</span></div>`;
+  }).join('');
+}
+</script>
+</body>
+</html>
