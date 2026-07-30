@@ -167,10 +167,6 @@ select{width:100%; padding:11px; border-radius:8px; border:1.5px solid rgba(255,
   <div class="hex-board-wrap">
     <div class="hex-board" id="hexBoard"></div>
   </div>
-
-  <div class="buzz-wrap" id="buzzWrap">
-    <button class="buzz-btn" id="buzzBtn" onclick="pressBuzz()">اضغط!</button>
-  </div>
 </div>
 </div>
 
@@ -181,6 +177,9 @@ select{width:100%; padding:11px; border-radius:8px; border:1.5px solid rgba(255,
     <div class="q-text" id="qText"></div>
     <div class="locked-info hidden" id="lockedInfo"></div>
     <div class="q-answer hidden" id="qAnswerBox"></div>
+    <div class="buzz-wrap hidden" id="buzzWrap">
+      <button class="buzz-btn" id="buzzBtn" onclick="pressBuzz()">اضغط!</button>
+    </div>
     <div class="btn-row hidden" id="hostRevealRow">
       <button class="btn btn-cta" onclick="hostRevealAnswer()">إظهار الجواب 👁️</button>
     </div>
@@ -533,8 +532,10 @@ async function hostOpenCell(r,c){
 /* ================= BUZZ HANDLING ================= */
 function updateBuzzUI(data){
   const btn = document.getElementById('buzzBtn');
-  if(isHost){ document.getElementById('buzzWrap').classList.add('hidden'); return; }
-  document.getElementById('buzzWrap').classList.remove('hidden');
+  const wrap = document.getElementById('buzzWrap');
+  const raceable = (data.status==='armed' || data.status==='locked') && !data.dareActive;
+  if(isHost || !raceable){ wrap.classList.add('hidden'); return; }
+  wrap.classList.remove('hidden');
   if(data.status==='armed' && !data.lockedBy){
     btn.classList.add('armed'); btn.classList.remove('locked-out');
     btn.style.background = TEAM_DEFS[myTeam].hex;
