@@ -56,7 +56,7 @@ select{width:100%; padding:11px; border-radius:8px; border:1.5px solid rgba(255,
 
 .hex-board-wrap{position:relative; margin:0 auto 16px; overflow:auto; padding:10px; max-width:100%;}
 .hex-board{position:relative; margin:0 auto;}
-.hex-cell{position:absolute; width:88px; height:100px; clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); background:linear-gradient(160deg,var(--honey-1),var(--honey-2)); color:#2a1a05; display:flex; align-items:center; justify-content:center; font-family:'Baloo Bhaijaan 2'; font-weight:700; font-size:1.7rem; cursor:default; border:2px solid rgba(0,0,0,.35); box-shadow:inset 0 -4px 6px rgba(0,0,0,.2), inset 0 4px 6px rgba(255,255,255,.15); transition:background .35s, transform .2s;}
+.hex-cell{position:absolute; width:88px; height:100px; clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); background:radial-gradient(circle at 35% 25%, #ffd97a, var(--honey-1) 45%, var(--honey-2) 85%); color:#3a2205; display:flex; align-items:center; justify-content:center; font-family:'Baloo Bhaijaan 2'; font-weight:700; font-size:1.7rem; cursor:default; border:2px solid #9a6414; box-shadow:inset 0 -8px 10px rgba(120,70,10,.35), inset 0 6px 8px rgba(255,255,255,.35), 0 3px 5px rgba(0,0,0,.25); transition:background .35s, transform .2s;}
 .hex-cell.clickable{cursor:pointer;}
 .hex-cell.clickable:hover{ transform:scale(1.06); filter:brightness(1.12); z-index:5; }
 .hex-cell.blocked{background:#33304a; color:#6b7280;}
@@ -324,6 +324,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
 });
 
 /* ================= BUILD BOARD DATA (host only) ================= */
+function getHexNeighbors(r,c){
+  const isEven = r%2===0;
+  return isEven
+    ? [[r,c-1],[r,c+1],[r-1,c-1],[r-1,c],[r+1,c-1],[r+1,c]]
+    : [[r,c-1],[r,c+1],[r-1,c],[r-1,c+1],[r+1,c],[r+1,c+1]];
+}
+function isAdjacentToAny(r,c,chosen){
+  const neighbors = getHexNeighbors(r,c).map(p=>p[0]+'_'+p[1]);
+  return chosen.some(p => neighbors.includes(p[0]+'_'+p[1]));
+}
 function pickEvenlyDistributedPositions(count){
   const maxPerRow = Math.ceil(count/HEX_ROWS);
   const maxPerCol = Math.ceil(count/HEX_COLS);
@@ -333,14 +343,22 @@ function pickEvenlyDistributedPositions(count){
   for(let r=0;r<HEX_ROWS;r++) for(let c=0;c<HEX_COLS;c++) allPositions.push([r,c]);
   const shuffled = allPositions.sort(()=>Math.random()-0.5);
   const chosen = [];
-  // pass 1: respect strict per-row/per-col caps
+  // pass 1: respect row/col caps AND avoid placing two special cells next to each other
   for(const [r,c] of shuffled){
     if(chosen.length>=count) break;
-    if(rowCounts[r]<maxPerRow && colCounts[c]<maxPerCol){
+    if(rowCounts[r]<maxPerRow && colCounts[c]<maxPerCol && !isAdjacentToAny(r,c,chosen)){
       chosen.push([r,c]); rowCounts[r]++; colCounts[c]++;
     }
   }
-  // pass 2 (fallback): relax caps if the strict pass couldn't fill all slots
+  // pass 2 (fallback): keep avoiding adjacency, relax row/col caps
+  if(chosen.length<count){
+    for(const [r,c] of shuffled){
+      if(chosen.length>=count) break;
+      if(chosen.some(p=>p[0]===r&&p[1]===c)) continue;
+      if(!isAdjacentToAny(r,c,chosen)){ chosen.push([r,c]); }
+    }
+  }
+  // pass 3 (final fallback): fill remaining slots regardless of adjacency
   if(chosen.length<count){
     for(const [r,c] of shuffled){
       if(chosen.length>=count) break;
@@ -497,7 +515,8 @@ function renderLobbyPlayers(){
   document.getElementById('hostStartWrap').classList.toggle('hidden', !isHost);
   const teamCounts = [0,0];
   playersCache.forEach(p=>{ if(p.team===0) teamCounts[0]++; if(p.team===1) teamCounts[1]++; });
-  document.getElementById('lobbyHint').textContent = `الفيروزي: ${teamCounts[0]} لاعب | البنفسجي: ${teamCounts[1]} لاعب`;
+  const teamsData = (roomCache && roomCache.teams) ? roomCache.teams : TEAM_DEFS;
+  document.getElementById('lobbyHint').textContent = `${teamsData[0].name}: ${teamCounts[0]} لاعب | ${teamsData[1].name}: ${teamCounts[1]} لاعب`;
 }
 async function startGame(){
   await roomRef.update({ status:'playing' });
@@ -564,10 +583,18 @@ function renderBoard(data){
   board.style.width = boardW+'px'; board.style.height = boardH+'px';
 
   // auto-scale to fit the viewport width (mobile portrait) without needing manual pinch-zoom
+  // uses transform:scale (unlike the non-standard `zoom` property, this works on iOS Safari too)
   const availableWidth = (wrap ? wrap.clientWidth : window.innerWidth) - 16;
-  const scale = Math.min(1, availableWidth / boardW);
-  board.style.zoom = scale;
-  if(wrap) wrap.style.height = (boardH*scale + 20) + 'px';
+  const availableHeight = window.innerHeight * 0.55; // leave room for HUD/status/buzz button
+  const scale = Math.max(0.3, Math.min(1, availableWidth / boardW, availableHeight / boardH));
+  board.style.transform = `scale(${scale})`;
+  board.style.transformOrigin = 'top center';
+  if(wrap){
+    wrap.style.height = (boardH*scale + 20) + 'px';
+    wrap.style.width = '100%';
+    wrap.style.display = 'flex';
+    wrap.style.justifyContent = 'center';
+  }
 
   let html='';
   data.cells.forEach((h,idx)=>{
@@ -582,7 +609,7 @@ function renderBoard(data){
       html += `<div class="hex-cell ${cls} ${canClick?'clickable':''}" id="${cellId}" style="left:${x}px; top:${y}px; background:${bg};" onclick="${canClick?`hostOpenCell(${h.r},${h.c})`:''}">${label}</div>`;
       return;
     }
-    let bg='linear-gradient(160deg,var(--honey-1),var(--honey-2))'; let cls=''; let txtColor='#2a1a05';
+    let bg='radial-gradient(circle at 35% 25%, #ffd97a, var(--honey-1) 45%, var(--honey-2) 85%)'; let cls=''; let txtColor='#3a2205';
     if(h.blocked){ cls='blocked'; txtColor=''; }
     else if(h.owner!==null && h.owner!==undefined){ bg=data.teams[h.owner].hex; txtColor='#fff'; }
     const content = (h.hiddenNum && !h.used) ? `<span class="hex-inner-num">${h.hiddenNum}</span>` : h.letter;
@@ -614,7 +641,7 @@ async function hostOpenCell(r,c){
   await roomRef.update({
     status:'armed', activeCellIdx:idx,
     armedAt: firebase.database.ServerValue.TIMESTAMP,
-    lockedBy:null, lockedTeam:null, revealed:false
+    lockedBy:null, lockedTeam:null, revealed:false, failedPlayers:null
   });
 }
 
@@ -636,13 +663,13 @@ async function hostChangeQuestion(){
   cells[idx] = {...h, question:pick[1], answer:pick[2]};
   await roomRef.update({
     cells, status:'armed', armedAt: firebase.database.ServerValue.TIMESTAMP,
-    lockedBy:null, lockedTeam:null, revealed:false
+    lockedBy:null, lockedTeam:null, revealed:false, failedPlayers:null
   });
 }
 async function hostCancelQuestion(){
   await roomRef.update({
-    status:'playing', activeCellIdx:null, armedAt:null,
-    lockedBy:null, lockedTeam:null, revealed:false, dareActive:false, dareText:null
+    status:'playing', activeCellIdx:null, armedAt:null, lockedAt:null,
+    lockedBy:null, lockedTeam:null, revealed:false, dareActive:false, dareText:null, failedPlayers:null
   });
 }
 
@@ -651,21 +678,32 @@ function startCountdownDisplay(data){
   clearInterval(countdownInterval);
   const el = document.getElementById('qCountdown');
   if(!el) return;
-  if(data.status!=='armed' || !data.armedAt || data.dareActive){
+  if(data.status!=='locked' || !data.lockedAt || data.dareActive){
     el.classList.add('hidden');
     return;
   }
   el.classList.remove('hidden');
   countdownInterval = setInterval(()=>{
-    const elapsed = (Date.now()-data.armedAt)/1000;
+    const elapsed = (Date.now()-data.lockedAt)/1000;
     const left = Math.max(0, Math.ceil(BUZZ_TIME_LIMIT-elapsed));
     el.textContent = left;
     el.classList.toggle('danger', left<=3);
     if(left<=0){
       clearInterval(countdownInterval);
-      if(isHost) hostCancelQuestion();
+      if(isHost) hostTimeoutReopen();
     }
   }, 200);
+}
+async function hostTimeoutReopen(){
+  const data = roomCache;
+  if(!data || data.status!=='locked') return;
+  localRevealed = false;
+  const failed = {...(data.failedPlayers||{})};
+  if(data.lockedBy) failed[data.lockedBy] = true;
+  await roomRef.update({
+    status:'armed', lockedBy:null, lockedTeam:null, revealed:false,
+    armedAt: firebase.database.ServerValue.TIMESTAMP, failedPlayers: failed
+  });
 }
 
 /* ================= BUZZ HANDLING ================= */
@@ -675,6 +713,11 @@ function updateBuzzUI(data){
   const raceable = (data.status==='armed' || data.status==='locked') && !data.dareActive;
   if(isHost || !raceable){ wrap.classList.add('hidden'); return; }
   wrap.classList.remove('hidden');
+  const alreadyFailed = data.failedPlayers && data.failedPlayers[playerId];
+  if(alreadyFailed){
+    btn.classList.remove('armed'); btn.classList.add('locked-out');
+    return;
+  }
   if(data.status==='armed' && !data.lockedBy){
     btn.classList.add('armed'); btn.classList.remove('locked-out');
     btn.style.background = data.teams[myTeam].hex;
@@ -687,6 +730,7 @@ function updateBuzzUI(data){
 }
 async function pressBuzz(){
   if(!roomCache || roomCache.status!=='armed') return;
+  if(roomCache.failedPlayers && roomCache.failedPlayers[playerId]) return; // already tried and failed on this question
   buzzSound();
   try{
     await roomRef.child('lockedBy').transaction(current=>{
@@ -696,12 +740,14 @@ async function pressBuzz(){
     // re-check: did we actually win the lock?
     const snap = await roomRef.child('lockedBy').once('value');
     if(snap.val()===playerId){
-      await roomRef.update({ status:'locked', lockedTeam:myTeam });
+      await roomRef.update({ status:'locked', lockedTeam:myTeam, lockedAt: firebase.database.ServerValue.TIMESTAMP });
     }
   } catch(e){}
 }
 
 /* ================= QUESTION MODAL SYNC ================= */
+let localRevealed = false; // host-only local reveal state (not synced)
+
 function updateQuestionModal(data){
   const modal = document.getElementById('qModal');
   if(data.status==='armed' || data.status==='locked'){
@@ -715,15 +761,17 @@ function updateQuestionModal(data){
       const p = playersCache.find(pp=>pp.id===data.lockedBy);
       document.getElementById('lockedInfo').textContent = '🔒 '+(p?p.name:'لاعب')+' ضغط أولاً! ('+data.teams[data.lockedTeam].name+')';
     }
-    if(data.revealed){
+    // "revealed" (synced) is only ever set true briefly to flash the answer to everyone after a correct judgment.
+    // The host's own private reveal (via the reveal button) is local-only and never synced.
+    if(data.revealed || (isHost && localRevealed && data.status==='locked')){
       document.getElementById('qAnswerBox').textContent = h.answer;
       document.getElementById('qAnswerBox').classList.remove('hidden');
     } else {
       document.getElementById('qAnswerBox').classList.add('hidden');
     }
-    document.getElementById('hostRevealRow').classList.toggle('hidden', !(isHost && data.status==='locked' && !data.revealed));
+    document.getElementById('hostRevealRow').classList.toggle('hidden', !(isHost && data.status==='locked' && !localRevealed));
     const jRow = document.getElementById('judgeRow');
-    if(isHost && data.status==='locked' && data.revealed){
+    if(isHost && data.status==='locked' && localRevealed){
       jRow.classList.remove('hidden');
       const t = data.teams[data.lockedTeam];
       jRow.innerHTML = `
@@ -736,46 +784,57 @@ function updateQuestionModal(data){
     document.getElementById('hostControlRow').classList.toggle('hidden', !isHost);
   } else if(data.status==='playing'){
     modal.classList.add('hidden');
+    localRevealed = false;
   }
 }
-async function hostRevealAnswer(){
-  await roomRef.update({ revealed:true });
+function hostRevealAnswer(){
+  localRevealed = true;
+  updateQuestionModal(roomCache); // refresh host's own view immediately (local only)
 }
 async function hostJudge(isCorrect){
   const data = roomCache;
   const idx = data.activeCellIdx;
   const cells = [...data.cells];
   const h = {...cells[idx]};
-  h.used = true;
-  const updates = {};
+  localRevealed = false;
+
   if(isCorrect){
+    h.used = true;
     h.owner = data.lockedTeam;
     let pts = h.special==='challenge' ? 2 : 1;
     cells[idx] = h;
     const awardedLines = data.awardedLines || {};
     const newLines = await checkLineBonus(cells, data.lockedTeam, h.r, h.c, awardedLines);
     const bonusCount = Object.keys(newLines).length;
+    const updates = {};
     if(bonusCount>0){ pts += bonusCount*3; Object.assign(awardedLines, newLines); updates['awardedLines'] = awardedLines; bonusSound(); }
     updates['teams/'+data.lockedTeam+'/score'] = data.teams[data.lockedTeam].score + pts;
     updates['streakTeam'] = data.lockedTeam;
     updates['streakCount'] = (data.streakTeam===data.lockedTeam ? (data.streakCount||0)+1 : 1);
+
+    // flash the answer to everyone for 1.5s before closing the question
+    updates['revealed'] = true;
+    await roomRef.update(updates);
+    correctSound();
+    await new Promise(res=>setTimeout(res, 1500));
+
+    await roomRef.update({
+      cells, status:'playing', activeCellIdx:null,
+      lockedBy:null, lockedTeam:null, armedAt:null, lockedAt:null,
+      revealed:false, failedPlayers:null
+    });
+    pulseCellClaim(h.r,h.c);
+    await checkGameEnd(cells, data.lockedTeam);
   } else {
-    h.blocked = true;
-    cells[idx] = h;
-    updates['streakTeam'] = null; updates['streakCount'] = 0;
+    // wrong: reopen buzzing for the remaining players instead of closing the cell
+    wrongSound();
+    const failed = {...(data.failedPlayers||{})};
+    failed[data.lockedBy] = true;
+    await roomRef.update({
+      status:'armed', lockedBy:null, lockedTeam:null, revealed:false,
+      armedAt: firebase.database.ServerValue.TIMESTAMP, failedPlayers: failed
+    });
   }
-  updates['cells'] = cells;
-  updates['status'] = 'playing';
-  updates['activeCellIdx'] = null;
-  updates['lockedBy'] = null;
-  updates['lockedTeam'] = null;
-  updates['armedAt'] = null;
-  await roomRef.update(updates);
-
-  pulseCellClaim(h.r,h.c);
-  if(isCorrect) correctSound(); else wrongSound();
-
-  await checkGameEnd(cells, isCorrect ? data.lockedTeam : null);
 }
 
 /* ================= INSTANT SPECIALS (host resolves) ================= */
