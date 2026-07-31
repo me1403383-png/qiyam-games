@@ -54,8 +54,8 @@ select{width:100%; padding:11px; border-radius:8px; border:1.5px solid rgba(255,
 .score-pill{padding:9px 16px; border-radius:8px; font-weight:800; font-size:.88rem; box-shadow:3px 3px 0 rgba(0,0,0,.3); border:2px solid rgba(0,0,0,.25);}
 .status-line{text-align:center; font-family:'Baloo Bhaijaan 2'; font-size:1.1rem; color:var(--cta); margin-bottom:10px; min-height:28px;}
 
-.hex-board-wrap{position:relative; margin:0 auto 16px; overflow:hidden; padding:0; max-width:100%; display:flex; justify-content:center;}
-.hex-board-scaler{position:relative; overflow:hidden;}
+.hex-board-wrap{position:relative; width:100%; margin:0 auto 16px; overflow:hidden; padding:0; display:flex; justify-content:center;}
+.hex-board-scaler{position:relative; overflow:hidden; flex-shrink:0;}
 .hex-board{position:relative; margin:0 auto;}
 .hex-cell{position:absolute; width:88px; height:100px; clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); background:radial-gradient(circle at 35% 25%, #ffd97a, var(--honey-1) 45%, var(--honey-2) 85%); color:#3a2205; display:flex; align-items:center; justify-content:center; font-family:'Baloo Bhaijaan 2'; font-weight:700; font-size:1.7rem; cursor:default; border:2px solid #9a6414; box-shadow:inset 0 -8px 10px rgba(120,70,10,.35), inset 0 6px 8px rgba(255,255,255,.35), 0 3px 5px rgba(0,0,0,.25); transition:background .35s, transform .2s;}
 .hex-cell.clickable{cursor:pointer;}
@@ -85,9 +85,14 @@ select{width:100%; padding:11px; border-radius:8px; border:1.5px solid rgba(255,
 .judge-row{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:10px;}
 .locked-info{font-weight:800; color:var(--cta); margin-bottom:10px; font-size:1.05rem;}
 .hint-text{background:rgba(46,196,182,.12); border:2px dashed var(--teal); border-radius:8px; padding:8px 12px; font-size:.9rem; color:var(--teal); margin-bottom:10px;}
-.team-helper-btn{padding:8px 12px; border-radius:8px; border:1.5px solid rgba(255,255,255,.15); background:transparent; color:var(--muted); font-size:.78rem; cursor:pointer; font-weight:700;}
-.team-helper-btn:hover{border-color:var(--cta); color:var(--cta);}
-.team-helper-btn.used-flag{opacity:.3; pointer-events:none;}
+.team-helper-btn{display:flex; flex-direction:column; align-items:center; gap:4px; min-width:84px; padding:10px 8px; border-radius:12px; border:2px solid; background:rgba(255,255,255,.06); font-family:'Tajawal'; cursor:pointer; font-weight:800; transition:transform .12s;}
+.team-helper-btn .thb-icon{font-size:1.5rem;}
+.team-helper-btn .thb-label{font-size:.72rem; line-height:1.2;}
+.team-helper-btn:hover{transform:translateY(-2px);}
+.team-helper-btn.thb-friend{border-color:#4361ee; color:#93a5ff; box-shadow:0 0 10px rgba(67,97,238,.25);}
+.team-helper-btn.thb-hint{border-color:var(--orange); color:#ffb37a; box-shadow:0 0 10px rgba(255,140,66,.25);}
+.team-helper-btn.thb-swap{border-color:var(--purple); color:#c4aeff; box-shadow:0 0 10px rgba(138,92,246,.25);}
+.team-helper-btn.used-flag{opacity:.25; pointer-events:none; filter:grayscale(.6);}
 
 #winScreen{position:fixed; inset:0; background:radial-gradient(circle at 50% 20%, rgba(36,36,74,.55), rgba(15,12,41,.65)); display:flex; align-items:flex-start; justify-content:center; padding-top:8vh; z-index:200;}
 .win-card{background:rgba(15,12,41,.9); border:3px solid var(--purple); border-radius:14px; padding:24px 34px; box-shadow:6px 6px 0 #000; text-align:center;}
@@ -601,7 +606,8 @@ function renderBoard(data){
 
   // auto-scale to fit the viewport width (mobile portrait) without needing manual pinch-zoom
   // uses transform:scale (unlike the non-standard `zoom` property, this works on iOS Safari too)
-  const availableWidth = (wrap ? wrap.clientWidth : window.innerWidth) - 8;
+  const stableContainer = document.getElementById('gameContent') || wrap;
+  const availableWidth = (stableContainer ? stableContainer.clientWidth : window.innerWidth) - 8;
   const availableHeight = window.innerHeight * 0.5; // leave room for HUD/status/buzz button
   const scale = Math.max(0.3, Math.min(1, availableWidth / boardW, availableHeight / boardH));
   board.style.transform = `scale(${scale})`;
@@ -668,9 +674,10 @@ async function useTeamFriend(){
   const data = roomCache;
   if(!data || data.status!=='locked' || myTeam!==data.lockedTeam) return;
   if(data.teams[myTeam].helpersUsed && data.teams[myTeam].helpersUsed.friend) return;
+  const newLockedAt = (data.lockedAt || Date.now()) + 10000; // shift the start point later = +10s remaining
   await roomRef.update({
     ['teams/'+myTeam+'/helpersUsed/friend']: true,
-    lockedAt: firebase.database.ServerValue.TIMESTAMP // restart the 10s answer countdown
+    lockedAt: newLockedAt
   });
 }
 async function useTeamHint(){
@@ -847,9 +854,9 @@ function updateQuestionModal(data){
       const used = (data.teams[myTeam].helpersUsed)||{};
       helperRow.classList.remove('hidden');
       helperRow.innerHTML = `
-        <button class="team-helper-btn ${used.friend?'used-flag':''}" onclick="useTeamFriend()">📞 مساعدة صديق (+10 ثوانٍ)</button>
-        <button class="team-helper-btn ${used.hint?'used-flag':''}" onclick="useTeamHint()">🔤 تلميح بالحرف الثاني</button>
-        <button class="team-helper-btn ${used.swap?'used-flag':''}" onclick="useTeamSwap()">🔄 تغيير السؤال</button>
+        <button class="team-helper-btn thb-friend ${used.friend?'used-flag':''}" onclick="useTeamFriend()"><span class="thb-icon">📞</span><span class="thb-label">مساعدة صديق<br>+10 ثوانٍ</span></button>
+        <button class="team-helper-btn thb-hint ${used.hint?'used-flag':''}" onclick="useTeamHint()"><span class="thb-icon">🔤</span><span class="thb-label">تلميح<br>الحرف الثاني</span></button>
+        <button class="team-helper-btn thb-swap ${used.swap?'used-flag':''}" onclick="useTeamSwap()"><span class="thb-icon">🔄</span><span class="thb-label">تغيير<br>السؤال</span></button>
       `;
       if(data.hintText && data.hintForTeam===myTeam){
         hintEl.textContent = '🔤 التلميح: '+data.hintText;
