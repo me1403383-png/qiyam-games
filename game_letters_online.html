@@ -54,7 +54,8 @@ select{width:100%; padding:11px; border-radius:8px; border:1.5px solid rgba(255,
 .score-pill{padding:9px 16px; border-radius:8px; font-weight:800; font-size:.88rem; box-shadow:3px 3px 0 rgba(0,0,0,.3); border:2px solid rgba(0,0,0,.25);}
 .status-line{text-align:center; font-family:'Baloo Bhaijaan 2'; font-size:1.1rem; color:var(--cta); margin-bottom:10px; min-height:28px;}
 
-.hex-board-wrap{position:relative; margin:0 auto 16px; overflow:auto; padding:10px; max-width:100%;}
+.hex-board-wrap{position:relative; margin:0 auto 16px; overflow:hidden; padding:0; max-width:100%; display:flex; justify-content:center;}
+.hex-board-scaler{position:relative; overflow:hidden;}
 .hex-board{position:relative; margin:0 auto;}
 .hex-cell{position:absolute; width:88px; height:100px; clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); background:radial-gradient(circle at 35% 25%, #ffd97a, var(--honey-1) 45%, var(--honey-2) 85%); color:#3a2205; display:flex; align-items:center; justify-content:center; font-family:'Baloo Bhaijaan 2'; font-weight:700; font-size:1.7rem; cursor:default; border:2px solid #9a6414; box-shadow:inset 0 -8px 10px rgba(120,70,10,.35), inset 0 6px 8px rgba(255,255,255,.35), 0 3px 5px rgba(0,0,0,.25); transition:background .35s, transform .2s;}
 .hex-cell.clickable{cursor:pointer;}
@@ -83,6 +84,10 @@ select{width:100%; padding:11px; border-radius:8px; border:1.5px solid rgba(255,
 .q-answer{background:rgba(46,196,182,.12); border:2px dashed var(--teal); border-radius:10px; padding:12px; font-size:1.15rem; font-weight:800; color:var(--teal); margin-bottom:14px;}
 .judge-row{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:10px;}
 .locked-info{font-weight:800; color:var(--cta); margin-bottom:10px; font-size:1.05rem;}
+.hint-text{background:rgba(46,196,182,.12); border:2px dashed var(--teal); border-radius:8px; padding:8px 12px; font-size:.9rem; color:var(--teal); margin-bottom:10px;}
+.team-helper-btn{padding:8px 12px; border-radius:8px; border:1.5px solid rgba(255,255,255,.15); background:transparent; color:var(--muted); font-size:.78rem; cursor:pointer; font-weight:700;}
+.team-helper-btn:hover{border-color:var(--cta); color:var(--cta);}
+.team-helper-btn.used-flag{opacity:.3; pointer-events:none;}
 
 #winScreen{position:fixed; inset:0; background:radial-gradient(circle at 50% 20%, rgba(36,36,74,.55), rgba(15,12,41,.65)); display:flex; align-items:flex-start; justify-content:center; padding-top:8vh; z-index:200;}
 .win-card{background:rgba(15,12,41,.9); border:3px solid var(--purple); border-radius:14px; padding:24px 34px; box-shadow:6px 6px 0 #000; text-align:center;}
@@ -180,7 +185,9 @@ select{width:100%; padding:11px; border-radius:8px; border:1.5px solid rgba(255,
   <div class="status-line" id="statusLine"></div>
 
   <div class="hex-board-wrap">
-    <div class="hex-board" id="hexBoard"></div>
+    <div class="hex-board-scaler" id="hexBoardScaler">
+      <div class="hex-board" id="hexBoard"></div>
+    </div>
   </div>
 </div>
 </div>
@@ -193,6 +200,8 @@ select{width:100%; padding:11px; border-radius:8px; border:1.5px solid rgba(255,
     <div class="q-text" id="qText"></div>
     <div class="locked-info hidden" id="lockedInfo"></div>
     <div class="q-answer hidden" id="qAnswerBox"></div>
+    <div class="hint-text hidden" id="hintText"></div>
+    <div class="btn-row hidden" id="teamHelperRow"></div>
     <div class="buzz-wrap hidden" id="buzzWrap">
       <button class="buzz-btn" id="buzzBtn" onclick="pressBuzz()">اضغط!</button>
     </div>
@@ -334,16 +343,15 @@ function isAdjacentToAny(r,c,chosen){
   const neighbors = getHexNeighbors(r,c).map(p=>p[0]+'_'+p[1]);
   return chosen.some(p => neighbors.includes(p[0]+'_'+p[1]));
 }
-function pickEvenlyDistributedPositions(count){
+function pickEvenlyDistributedPositions(count, candidatePositions){
+  const candidates = candidatePositions || (()=>{ const a=[]; for(let r=0;r<HEX_ROWS;r++) for(let c=0;c<HEX_COLS;c++) a.push([r,c]); return a; })();
   const maxPerRow = Math.ceil(count/HEX_ROWS);
   const maxPerCol = Math.ceil(count/HEX_COLS);
   const rowCounts = Array(HEX_ROWS).fill(0);
   const colCounts = Array(HEX_COLS).fill(0);
-  const allPositions=[];
-  for(let r=0;r<HEX_ROWS;r++) for(let c=0;c<HEX_COLS;c++) allPositions.push([r,c]);
-  const shuffled = allPositions.sort(()=>Math.random()-0.5);
+  const shuffled = [...candidates].sort(()=>Math.random()-0.5);
   const chosen = [];
-  // pass 1: respect row/col caps AND avoid placing two special cells next to each other
+  // pass 1: respect row/col caps AND avoid placing two cells of this set next to each other
   for(const [r,c] of shuffled){
     if(chosen.length>=count) break;
     if(rowCounts[r]<maxPerRow && colCounts[c]<maxPerCol && !isAdjacentToAny(r,c,chosen)){
@@ -373,17 +381,22 @@ function buildBoardCells(round){
   const specialCount = 8;
   const pool = [...ROUNDS[String(round)]].sort(()=>Math.random()-0.5);
   const data = pool; // all 28 letters on regular cells
-  const hiddenIdx = new Set();
-  while(hiddenIdx.size<9){ hiddenIdx.add(Math.floor(Math.random()*data.length)); }
   const hiddenNums = [1,2,3,4,5,6,7,8,9].sort(()=>Math.random()-0.5);
-  let hiddenCounter=0;
 
   const specialPositions = pickEvenlyDistributedPositions(specialCount);
+  const specialKeySet = new Set(specialPositions.map(p=>p[0]+'_'+p[1]));
   const specialTypes = ['mine','mine','gift','gift','challenge','challenge','penalty','penalty'].sort(()=>Math.random()-0.5);
   const specialMap = new Map();
   specialPositions.forEach((p,i)=> specialMap.set(p[0]+'_'+p[1], specialTypes[i]));
   const specialNums = [10,11,12,13,14,15,16,17].sort(()=>Math.random()-0.5);
   let specialCounter=0;
+
+  // hidden-number cells (1-9) use the SAME balanced+non-adjacent placement, restricted to non-special cells
+  const nonSpecialPositions = [];
+  for(let r=0;r<HEX_ROWS;r++) for(let c=0;c<HEX_COLS;c++){ if(!specialKeySet.has(r+'_'+c)) nonSpecialPositions.push([r,c]); }
+  const hiddenPositions = pickEvenlyDistributedPositions(9, nonSpecialPositions);
+  const hiddenKeySet = new Set(hiddenPositions.map(p=>p[0]+'_'+p[1]));
+  let hiddenCounter=0;
 
   const cells = [];
   let dataIdx=0;
@@ -396,7 +409,7 @@ function buildBoardCells(round){
         continue;
       }
       const item = data[dataIdx];
-      const isHidden = hiddenIdx.has(dataIdx);
+      const isHidden = hiddenKeySet.has(key);
       cells.push({ r,c, special:null, letter:item[0], question:item[1], answer:item[2],
         hiddenNum: isHidden?hiddenNums[hiddenCounter++]:null, used:false, owner:null, blocked:false });
       dataIdx++;
@@ -418,7 +431,10 @@ async function createRoom(){
   try{
     await roomRef.set({
       status:'lobby', round, hostId:playerId,
-      teams:{ 0:{name:customTeams[0].name, hex:customTeams[0].hex, score:0}, 1:{name:customTeams[1].name, hex:customTeams[1].hex, score:0} },
+      teams:{
+        0:{name:customTeams[0].name, hex:customTeams[0].hex, score:0, helpersUsed:{friend:false,hint:false,swap:false}},
+        1:{name:customTeams[1].name, hex:customTeams[1].hex, score:0, helpersUsed:{friend:false,hint:false,swap:false}}
+      },
       cells, activeCell:null, armedAt:null, lockedBy:null, lockedTeam:null,
       streakTeam:null, streakCount:0, awardedLines:{}, createdAt: Date.now()
     });
@@ -574,6 +590,7 @@ function updateStatusLine(data){
 /* ================= BOARD RENDER ================= */
 function renderBoard(data){
   const board = document.getElementById('hexBoard');
+  const scaler = document.getElementById('hexBoardScaler');
   const wrap = document.querySelector('.hex-board-wrap');
   const hexW=88, hexH=100, hStep=hexW, vStep=hexH*0.75, rowShift=hexW/2;
   function hx(r,c){ return c*hStep + (r%2===1?rowShift:0); }
@@ -584,16 +601,16 @@ function renderBoard(data){
 
   // auto-scale to fit the viewport width (mobile portrait) without needing manual pinch-zoom
   // uses transform:scale (unlike the non-standard `zoom` property, this works on iOS Safari too)
-  const availableWidth = (wrap ? wrap.clientWidth : window.innerWidth) - 16;
-  const availableHeight = window.innerHeight * 0.55; // leave room for HUD/status/buzz button
+  const availableWidth = (wrap ? wrap.clientWidth : window.innerWidth) - 8;
+  const availableHeight = window.innerHeight * 0.5; // leave room for HUD/status/buzz button
   const scale = Math.max(0.3, Math.min(1, availableWidth / boardW, availableHeight / boardH));
   board.style.transform = `scale(${scale})`;
-  board.style.transformOrigin = 'top center';
-  if(wrap){
-    wrap.style.height = (boardH*scale + 20) + 'px';
-    wrap.style.width = '100%';
-    wrap.style.display = 'flex';
-    wrap.style.justifyContent = 'center';
+  board.style.transformOrigin = 'top left';
+  // the scaler is sized to the ACTUAL scaled (visual) dimensions, so overflow/clipping
+  // is correct even though CSS transforms don't shrink the pre-transform layout box.
+  if(scaler){
+    scaler.style.width = (boardW*scale)+'px';
+    scaler.style.height = (boardH*scale)+'px';
   }
 
   let html='';
@@ -641,11 +658,55 @@ async function hostOpenCell(r,c){
   await roomRef.update({
     status:'armed', activeCellIdx:idx,
     armedAt: firebase.database.ServerValue.TIMESTAMP,
-    lockedBy:null, lockedTeam:null, revealed:false, failedPlayers:null
+    lockedBy:null, lockedTeam:null, revealed:false, failedPlayers:null, hintText:null, hintForTeam:null
   });
 }
 
 /* ---- Host controls: change question (same letter, different round) / cancel question ---- */
+/* ---- Team one-time helpers (once per team per game): friend, hint, swap ---- */
+async function useTeamFriend(){
+  const data = roomCache;
+  if(!data || data.status!=='locked' || myTeam!==data.lockedTeam) return;
+  if(data.teams[myTeam].helpersUsed && data.teams[myTeam].helpersUsed.friend) return;
+  await roomRef.update({
+    ['teams/'+myTeam+'/helpersUsed/friend']: true,
+    lockedAt: firebase.database.ServerValue.TIMESTAMP // restart the 10s answer countdown
+  });
+}
+async function useTeamHint(){
+  const data = roomCache;
+  if(!data || data.status!=='locked' || myTeam!==data.lockedTeam) return;
+  if(data.teams[myTeam].helpersUsed && data.teams[myTeam].helpersUsed.hint) return;
+  const h = data.cells[data.activeCellIdx];
+  const answer = (h.answer||'').trim();
+  const secondChar = answer.length>1 ? answer[1] : answer[0];
+  await roomRef.update({
+    ['teams/'+myTeam+'/helpersUsed/hint']: true,
+    hintText: secondChar, hintForTeam: myTeam
+  });
+}
+async function useTeamSwap(){
+  const data = roomCache;
+  if(!data || data.status!=='locked' || myTeam!==data.lockedTeam) return;
+  if(data.teams[myTeam].helpersUsed && data.teams[myTeam].helpersUsed.swap) return;
+  const idx = data.activeCellIdx;
+  const h = data.cells[idx];
+  const targetLetter = h.letter;
+  const variants = [];
+  Object.keys(ROUNDS).forEach(rk=>{
+    ROUNDS[rk].forEach(item=>{ if(item[0]===targetLetter && item[1]!==h.question) variants.push(item); });
+  });
+  if(variants.length===0) return;
+  const pick = variants[Math.floor(Math.random()*variants.length)];
+  const cells = [...data.cells];
+  cells[idx] = {...h, question:pick[1], answer:pick[2]};
+  await roomRef.update({
+    ['teams/'+myTeam+'/helpersUsed/swap']: true,
+    cells, lockedAt: firebase.database.ServerValue.TIMESTAMP,
+    hintText:null, hintForTeam:null
+  });
+}
+
 async function hostChangeQuestion(){
   const data = roomCache;
   const idx = data.activeCellIdx;
@@ -663,13 +724,13 @@ async function hostChangeQuestion(){
   cells[idx] = {...h, question:pick[1], answer:pick[2]};
   await roomRef.update({
     cells, status:'armed', armedAt: firebase.database.ServerValue.TIMESTAMP,
-    lockedBy:null, lockedTeam:null, revealed:false, failedPlayers:null
+    lockedBy:null, lockedTeam:null, revealed:false, failedPlayers:null, hintText:null, hintForTeam:null
   });
 }
 async function hostCancelQuestion(){
   await roomRef.update({
     status:'playing', activeCellIdx:null, armedAt:null, lockedAt:null,
-    lockedBy:null, lockedTeam:null, revealed:false, dareActive:false, dareText:null, failedPlayers:null
+    lockedBy:null, lockedTeam:null, revealed:false, dareActive:false, dareText:null, failedPlayers:null, hintText:null, hintForTeam:null
   });
 }
 
@@ -698,11 +759,9 @@ async function hostTimeoutReopen(){
   const data = roomCache;
   if(!data || data.status!=='locked') return;
   localRevealed = false;
-  const failed = {...(data.failedPlayers||{})};
-  if(data.lockedBy) failed[data.lockedBy] = true;
   await roomRef.update({
     status:'armed', lockedBy:null, lockedTeam:null, revealed:false,
-    armedAt: firebase.database.ServerValue.TIMESTAMP, failedPlayers: failed
+    armedAt: firebase.database.ServerValue.TIMESTAMP, failedPlayers: null
   });
 }
 
@@ -733,13 +792,11 @@ async function pressBuzz(){
   if(roomCache.failedPlayers && roomCache.failedPlayers[playerId]) return; // already tried and failed on this question
   buzzSound();
   try{
-    await roomRef.child('lockedBy').transaction(current=>{
+    const result = await roomRef.child('lockedBy').transaction(current=>{
       if(current===null || current===undefined) return playerId;
       return; // abort, someone already locked it
     });
-    // re-check: did we actually win the lock?
-    const snap = await roomRef.child('lockedBy').once('value');
-    if(snap.val()===playerId){
+    if(result.committed && result.snapshot.val()===playerId){
       await roomRef.update({ status:'locked', lockedTeam:myTeam, lockedAt: firebase.database.ServerValue.TIMESTAMP });
     }
   } catch(e){}
@@ -782,6 +839,26 @@ function updateQuestionModal(data){
       jRow.classList.add('hidden');
     }
     document.getElementById('hostControlRow').classList.toggle('hidden', !isHost);
+
+    // team helpers: shown only to the locked team's own players (not host, not the opposing team)
+    const hintEl = document.getElementById('hintText');
+    const helperRow = document.getElementById('teamHelperRow');
+    if(!isHost && data.status==='locked' && myTeam===data.lockedTeam){
+      const used = (data.teams[myTeam].helpersUsed)||{};
+      helperRow.classList.remove('hidden');
+      helperRow.innerHTML = `
+        <button class="team-helper-btn ${used.friend?'used-flag':''}" onclick="useTeamFriend()">📞 مساعدة صديق (+10 ثوانٍ)</button>
+        <button class="team-helper-btn ${used.hint?'used-flag':''}" onclick="useTeamHint()">🔤 تلميح بالحرف الثاني</button>
+        <button class="team-helper-btn ${used.swap?'used-flag':''}" onclick="useTeamSwap()">🔄 تغيير السؤال</button>
+      `;
+      if(data.hintText && data.hintForTeam===myTeam){
+        hintEl.textContent = '🔤 التلميح: '+data.hintText;
+        hintEl.classList.remove('hidden');
+      } else { hintEl.classList.add('hidden'); }
+    } else {
+      helperRow.classList.add('hidden');
+      hintEl.classList.add('hidden');
+    }
   } else if(data.status==='playing'){
     modal.classList.add('hidden');
     localRevealed = false;
@@ -821,7 +898,7 @@ async function hostJudge(isCorrect){
     await roomRef.update({
       cells, status:'playing', activeCellIdx:null,
       lockedBy:null, lockedTeam:null, armedAt:null, lockedAt:null,
-      revealed:false, failedPlayers:null
+      revealed:false, failedPlayers:null, hintText:null, hintForTeam:null
     });
     pulseCellClaim(h.r,h.c);
     await checkGameEnd(cells, data.lockedTeam);
