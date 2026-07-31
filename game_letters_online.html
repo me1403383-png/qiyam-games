@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>مسابقة حروف الثقافية - أونلاين</title>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@500;600;700;800&family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
@@ -10,6 +10,7 @@
   --bg1:#0f0c29; --card:#20204a; --card-2:#282860;
   --teal:#2ec4b6; --purple:#8a5cf6; --orange:#ff8c42; --pink:#ff5c8a;
   --text:#f2f4fb; --muted:#9b93c9; --cta:#ffd166;
+  --honey-1:#e8a936; --honey-2:#c97f1e; --honey-glow:#ffd166;
 }
 *{box-sizing:border-box; margin:0; padding:0;}
 html,body{min-height:100%; font-family:'Tajawal',sans-serif; background:var(--bg1); color:var(--text);}
@@ -55,7 +56,7 @@ select{width:100%; padding:11px; border-radius:8px; border:1.5px solid rgba(255,
 
 .hex-board-wrap{position:relative; margin:0 auto 16px; overflow:auto; padding:10px; max-width:100%;}
 .hex-board{position:relative; margin:0 auto;}
-.hex-cell{position:absolute; width:88px; height:100px; clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); background:var(--card-2); display:flex; align-items:center; justify-content:center; font-family:'Baloo Bhaijaan 2'; font-weight:700; font-size:1.7rem; cursor:default; border:2px solid rgba(0,0,0,.4); transition:background .35s, transform .2s;}
+.hex-cell{position:absolute; width:88px; height:100px; clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); background:linear-gradient(160deg,var(--honey-1),var(--honey-2)); color:#2a1a05; display:flex; align-items:center; justify-content:center; font-family:'Baloo Bhaijaan 2'; font-weight:700; font-size:1.7rem; cursor:default; border:2px solid rgba(0,0,0,.35); box-shadow:inset 0 -4px 6px rgba(0,0,0,.2), inset 0 4px 6px rgba(255,255,255,.15); transition:background .35s, transform .2s;}
 .hex-cell.clickable{cursor:pointer;}
 .hex-cell.clickable:hover{ transform:scale(1.06); filter:brightness(1.12); z-index:5; }
 .hex-cell.blocked{background:#33304a; color:#6b7280;}
@@ -75,6 +76,9 @@ select{width:100%; padding:11px; border-radius:8px; border:1.5px solid rgba(255,
 .q-modal{position:fixed; inset:0; background:rgba(8,10,16,.85); display:flex; align-items:center; justify-content:center; z-index:100; padding:16px;}
 .q-card{background:var(--card); border-radius:10px; padding:26px 22px; max-width:480px; width:100%; text-align:center; box-shadow:6px 6px 0 #000; border:3px solid var(--purple);}
 .q-badge{font-family:'Baloo Bhaijaan 2'; font-size:1rem; background:rgba(255,255,255,.08); padding:8px 16px; border-radius:8px; display:inline-block; margin-bottom:12px; border:2px solid rgba(0,0,0,.3);}
+.q-countdown{font-family:'Baloo Bhaijaan 2'; font-size:2rem; color:var(--teal); margin-bottom:10px;}
+.q-countdown.danger{color:var(--pink); animation:pulse .4s infinite;}
+@keyframes pulse{ 0%,100%{transform:scale(1);} 50%{transform:scale(1.15);} }
 .q-text{font-size:1.1rem; margin-bottom:16px; line-height:1.6;}
 .q-answer{background:rgba(46,196,182,.12); border:2px dashed var(--teal); border-radius:10px; padding:12px; font-size:1.15rem; font-weight:800; color:var(--teal); margin-bottom:14px;}
 .judge-row{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:10px;}
@@ -124,11 +128,22 @@ select{width:100%; padding:11px; border-radius:8px; border:1.5px solid rgba(255,
       <option value="5">الجولة 5</option>
       <option value="6">الجولة 6</option>
     </select>
-    <button class="btn btn-cta" style="width:100%;" onclick="createRoom()">إنشاء الغرفة</button>
+
+    <label class="field" style="margin-top:6px;">فِرَق اللعبة</label>
+    <div id="teamCustomWrap"></div>
+
+    <button class="btn btn-cta" style="width:100%; margin-top:8px;" onclick="createRoom()">إنشاء الغرفة</button>
   </div>
 </div>
 
 <!-- TEAM PICK (players only) -->
+<style>
+.team-custom-row{display:flex; align-items:center; gap:8px; background:var(--card-2); padding:8px 10px; border-radius:8px; margin-bottom:8px;}
+.team-custom-row input[type=text]{flex:1; margin-bottom:0; padding:8px 10px; font-size:.9rem;}
+.tc-swatches{display:flex; gap:4px;}
+.tc-swatch{width:20px; height:20px; border-radius:5px; border:2px solid transparent; cursor:pointer;}
+.tc-swatch.sel{border-color:#fff;}
+</style>
 <div class="screen hidden" id="teamPickScreen">
   <div class="card">
     <h1 class="title">اختر فريقك</h1>
@@ -174,6 +189,7 @@ select{width:100%; padding:11px; border-radius:8px; border:1.5px solid rgba(255,
 <div class="q-modal hidden" id="qModal">
   <div class="q-card">
     <div class="q-badge" id="qBadge"></div>
+    <div class="q-countdown hidden" id="qCountdown">10</div>
     <div class="q-text" id="qText"></div>
     <div class="locked-info hidden" id="lockedInfo"></div>
     <div class="q-answer hidden" id="qAnswerBox"></div>
@@ -184,6 +200,10 @@ select{width:100%; padding:11px; border-radius:8px; border:1.5px solid rgba(255,
       <button class="btn btn-cta" onclick="hostRevealAnswer()">إظهار الجواب 👁️</button>
     </div>
     <div class="judge-row hidden" id="judgeRow"></div>
+    <div class="btn-row hidden" id="hostControlRow">
+      <button class="btn btn-outline" style="font-size:.8rem; padding:8px 14px;" onclick="hostChangeQuestion()">🔄 تغيير السؤال</button>
+      <button class="btn btn-outline" style="font-size:.8rem; padding:8px 14px;" onclick="hostCancelQuestion()">❌ إلغاء السؤال</button>
+    </div>
   </div>
 </div>
 
@@ -224,6 +244,28 @@ const TEAM_DEFS = [
   {name:'الفريق الفيروزي', hex:'#2ec4b6'},
   {name:'الفريق البنفسجي', hex:'#8a5cf6'},
 ];
+const COLOR_PALETTE = ['#2ec4b6','#8a5cf6','#ff8c42','#ff5c8a','#4361ee','#22c55e','#ef4444','#eab308'];
+let customTeams = JSON.parse(JSON.stringify(TEAM_DEFS));
+function renderTeamCustomUI(){
+  const wrap = document.getElementById('teamCustomWrap');
+  const goals = ['⟷ يمين↔يسار', '↕ أعلى↕أسفل'];
+  wrap.innerHTML = customTeams.map((t,i)=>`
+    <div class="team-custom-row">
+      <input type="text" value="${t.name}" oninput="customTeams[${i}].name=this.value">
+      <div class="tc-swatches">
+        ${COLOR_PALETTE.map(c=>`<div class="tc-swatch ${t.hex===c?'sel':''}" style="background:${c}" onclick="pickCustomTeamColor(${i},'${c}')"></div>`).join('')}
+      </div>
+      <span style="font-size:.7rem; color:var(--muted); white-space:nowrap;">${goals[i]}</span>
+    </div>
+  `).join('');
+}
+function pickCustomTeamColor(i, hex){
+  const other = customTeams[1-i].hex;
+  if(other===hex) return; // prevent duplicate colors between the two teams
+  customTeams[i].hex = hex;
+  renderTeamCustomUI();
+}
+
 const HEX_ROWS = 6, HEX_COLS = 6;
 const SPECIAL_ICONS = { mine:'💣', gift:'🎁', challenge:'⚡', penalty:'🚫' };
 const DARE_LIST = [
@@ -272,7 +314,7 @@ function showScreen(id){
   document.getElementById(id).classList.remove('hidden');
   renderFloatingStatus();
 }
-function showCreate(){ showScreen('createScreen'); }
+function showCreate(){ showScreen('createScreen'); renderTeamCustomUI(); }
 
 /* restore session / autofill join code from QR */
 document.addEventListener('DOMContentLoaded', ()=>{
@@ -282,8 +324,34 @@ document.addEventListener('DOMContentLoaded', ()=>{
 });
 
 /* ================= BUILD BOARD DATA (host only) ================= */
+function pickEvenlyDistributedPositions(count){
+  const maxPerRow = Math.ceil(count/HEX_ROWS);
+  const maxPerCol = Math.ceil(count/HEX_COLS);
+  const rowCounts = Array(HEX_ROWS).fill(0);
+  const colCounts = Array(HEX_COLS).fill(0);
+  const allPositions=[];
+  for(let r=0;r<HEX_ROWS;r++) for(let c=0;c<HEX_COLS;c++) allPositions.push([r,c]);
+  const shuffled = allPositions.sort(()=>Math.random()-0.5);
+  const chosen = [];
+  // pass 1: respect strict per-row/per-col caps
+  for(const [r,c] of shuffled){
+    if(chosen.length>=count) break;
+    if(rowCounts[r]<maxPerRow && colCounts[c]<maxPerCol){
+      chosen.push([r,c]); rowCounts[r]++; colCounts[c]++;
+    }
+  }
+  // pass 2 (fallback): relax caps if the strict pass couldn't fill all slots
+  if(chosen.length<count){
+    for(const [r,c] of shuffled){
+      if(chosen.length>=count) break;
+      if(chosen.some(p=>p[0]===r&&p[1]===c)) continue;
+      chosen.push([r,c]);
+    }
+  }
+  return chosen;
+}
+
 function buildBoardCells(round){
-  const totalCells = HEX_ROWS*HEX_COLS;
   const specialCount = 8;
   const pool = [...ROUNDS[String(round)]].sort(()=>Math.random()-0.5);
   const data = pool; // all 28 letters on regular cells
@@ -292,10 +360,7 @@ function buildBoardCells(round){
   const hiddenNums = [1,2,3,4,5,6,7,8,9].sort(()=>Math.random()-0.5);
   let hiddenCounter=0;
 
-  const allPositions=[];
-  for(let r=0;r<HEX_ROWS;r++) for(let c=0;c<HEX_COLS;c++) allPositions.push([r,c]);
-  const shuffledPositions = [...allPositions].sort(()=>Math.random()-0.5);
-  const specialPositions = shuffledPositions.slice(0,specialCount);
+  const specialPositions = pickEvenlyDistributedPositions(specialCount);
   const specialTypes = ['mine','mine','gift','gift','challenge','challenge','penalty','penalty'].sort(()=>Math.random()-0.5);
   const specialMap = new Map();
   specialPositions.forEach((p,i)=> specialMap.set(p[0]+'_'+p[1], specialTypes[i]));
@@ -335,9 +400,9 @@ async function createRoom(){
   try{
     await roomRef.set({
       status:'lobby', round, hostId:playerId,
-      teams:{ 0:{name:TEAM_DEFS[0].name, hex:TEAM_DEFS[0].hex, score:0}, 1:{name:TEAM_DEFS[1].name, hex:TEAM_DEFS[1].hex, score:0} },
+      teams:{ 0:{name:customTeams[0].name, hex:customTeams[0].hex, score:0}, 1:{name:customTeams[1].name, hex:customTeams[1].hex, score:0} },
       cells, activeCell:null, armedAt:null, lockedBy:null, lockedTeam:null,
-      streakTeam:null, streakCount:0, createdAt: Date.now()
+      streakTeam:null, streakCount:0, awardedLines:{}, createdAt: Date.now()
     });
     await roomRef.child('players').child(playerId).set({ name, team:0, online:true, joinedAt:Date.now() });
     enterLobby();
@@ -365,11 +430,23 @@ async function joinRoom(){
       return;
     }
     roomCode=code; roomRef=ref; playerId=genId(); playerName=name; isHost=false;
+    const teamsSnap = await ref.child('teams').once('value');
+    const teamsData = teamsSnap.val() || TEAM_DEFS;
+    renderTeamPickButtons(teamsData);
     showScreen('teamPickScreen');
   } catch(e){
     err.textContent='حدث خطأ، حاول مرة أخرى';
     btn.disabled=false; btn.textContent='انضمام للغرفة'; isJoining=false;
   }
+}
+function renderTeamPickButtons(teamsData){
+  const goals = ['⟷ يمين↔يسار', '↕ أعلى↕أسفل'];
+  const btnA = document.getElementById('pickTeamA');
+  const btnB = document.getElementById('pickTeamB');
+  btnA.style.background = teamsData[0].hex;
+  btnA.innerHTML = teamsData[0].name+'<br><span style="font-size:.8rem;">'+goals[0]+'</span>';
+  btnB.style.background = teamsData[1].hex;
+  btnB.innerHTML = teamsData[1].name+'<br><span style="font-size:.8rem;">'+goals[1]+'</span>';
 }
 async function pickTeam(teamIdx){
   myTeam = teamIdx;
@@ -412,9 +489,10 @@ function listenPlayers(){
 function renderLobbyPlayers(){
   const list = document.getElementById('playerList');
   list.innerHTML = playersCache.map(p=>{
-    const teamColor = p.team!==undefined ? TEAM_DEFS[p.team].hex : '#888';
+    const teamsData = (roomCache && roomCache.teams) ? roomCache.teams : TEAM_DEFS;
+    const teamColor = p.team!==undefined ? teamsData[p.team].hex : '#888';
     const dot = p.online!==false ? '🟢' : '🔴';
-    return `<li><span>${dot} ${p.name}</span><span style="color:${teamColor}">${p.team!==undefined?TEAM_DEFS[p.team].name:''}</span></li>`;
+    return `<li><span>${dot} ${p.name}</span><span style="color:${teamColor}">${p.team!==undefined?teamsData[p.team].name:''}</span></li>`;
   }).join('');
   document.getElementById('hostStartWrap').classList.toggle('hidden', !isHost);
   const teamCounts = [0,0];
@@ -444,6 +522,7 @@ function handleRoomUpdate(data){
     updateBuzzUI(data);
     updateQuestionModal(data);
     updateStatusLine(data);
+    startCountdownDisplay(data);
   } else if(data.status==='finished'){
     document.getElementById('gameScreenWrap').classList.remove('hidden'); // keep board visible behind win screen
     renderBoard(data);
@@ -476,12 +555,19 @@ function updateStatusLine(data){
 /* ================= BOARD RENDER ================= */
 function renderBoard(data){
   const board = document.getElementById('hexBoard');
+  const wrap = document.querySelector('.hex-board-wrap');
   const hexW=88, hexH=100, hStep=hexW, vStep=hexH*0.75, rowShift=hexW/2;
   function hx(r,c){ return c*hStep + (r%2===1?rowShift:0); }
   function hy(r){ return r*vStep; }
   const boardW = HEX_COLS*hStep + rowShift + hexW*0.15;
   const boardH = HEX_ROWS*vStep + hexH*0.3;
   board.style.width = boardW+'px'; board.style.height = boardH+'px';
+
+  // auto-scale to fit the viewport width (mobile portrait) without needing manual pinch-zoom
+  const availableWidth = (wrap ? wrap.clientWidth : window.innerWidth) - 16;
+  const scale = Math.min(1, availableWidth / boardW);
+  board.style.zoom = scale;
+  if(wrap) wrap.style.height = (boardH*scale + 20) + 'px';
 
   let html='';
   data.cells.forEach((h,idx)=>{
@@ -496,16 +582,19 @@ function renderBoard(data){
       html += `<div class="hex-cell ${cls} ${canClick?'clickable':''}" id="${cellId}" style="left:${x}px; top:${y}px; background:${bg};" onclick="${canClick?`hostOpenCell(${h.r},${h.c})`:''}">${label}</div>`;
       return;
     }
-    let bg='var(--card-2)'; let cls='';
-    if(h.blocked) cls='blocked';
-    else if(h.owner!==null && h.owner!==undefined) bg=data.teams[h.owner].hex;
+    let bg='linear-gradient(160deg,var(--honey-1),var(--honey-2))'; let cls=''; let txtColor='#2a1a05';
+    if(h.blocked){ cls='blocked'; txtColor=''; }
+    else if(h.owner!==null && h.owner!==undefined){ bg=data.teams[h.owner].hex; txtColor='#fff'; }
     const content = (h.hiddenNum && !h.used) ? `<span class="hex-inner-num">${h.hiddenNum}</span>` : h.letter;
-    html += `<div class="hex-cell ${cls} ${canClick?'clickable':''}" id="${cellId}" style="left:${x}px; top:${y}px; background:${bg};" onclick="${canClick?`hostOpenCell(${h.r},${h.c})`:''}">${content}</div>`;
+    html += `<div class="hex-cell ${cls} ${canClick?'clickable':''}" id="${cellId}" style="left:${x}px; top:${y}px; background:${bg}; ${txtColor?'color:'+txtColor+';':''}" onclick="${canClick?`hostOpenCell(${h.r},${h.c})`:''}">${content}</div>`;
   });
   board.innerHTML = html;
 }
 
 /* ================= HOST: OPEN A CELL ================= */
+const BUZZ_TIME_LIMIT = 10; // seconds
+let countdownInterval = null;
+
 async function hostOpenCell(r,c){
   const data = roomCache;
   if(!isHost || data.status!=='playing') return;
@@ -525,8 +614,58 @@ async function hostOpenCell(r,c){
   await roomRef.update({
     status:'armed', activeCellIdx:idx,
     armedAt: firebase.database.ServerValue.TIMESTAMP,
-    lockedBy:null, lockedTeam:null
+    lockedBy:null, lockedTeam:null, revealed:false
   });
+}
+
+/* ---- Host controls: change question (same letter, different round) / cancel question ---- */
+async function hostChangeQuestion(){
+  const data = roomCache;
+  const idx = data.activeCellIdx;
+  const h = data.cells[idx];
+  const targetLetter = h.letter;
+  const variants = [];
+  Object.keys(ROUNDS).forEach(rk=>{
+    ROUNDS[rk].forEach(item=>{
+      if(item[0]===targetLetter && item[1]!==h.question) variants.push(item);
+    });
+  });
+  if(variants.length===0) return;
+  const pick = variants[Math.floor(Math.random()*variants.length)];
+  const cells = [...data.cells];
+  cells[idx] = {...h, question:pick[1], answer:pick[2]};
+  await roomRef.update({
+    cells, status:'armed', armedAt: firebase.database.ServerValue.TIMESTAMP,
+    lockedBy:null, lockedTeam:null, revealed:false
+  });
+}
+async function hostCancelQuestion(){
+  await roomRef.update({
+    status:'playing', activeCellIdx:null, armedAt:null,
+    lockedBy:null, lockedTeam:null, revealed:false, dareActive:false, dareText:null
+  });
+}
+
+/* ---- Countdown (host drives the authoritative expiry; everyone sees the visual countdown) ---- */
+function startCountdownDisplay(data){
+  clearInterval(countdownInterval);
+  const el = document.getElementById('qCountdown');
+  if(!el) return;
+  if(data.status!=='armed' || !data.armedAt || data.dareActive){
+    el.classList.add('hidden');
+    return;
+  }
+  el.classList.remove('hidden');
+  countdownInterval = setInterval(()=>{
+    const elapsed = (Date.now()-data.armedAt)/1000;
+    const left = Math.max(0, Math.ceil(BUZZ_TIME_LIMIT-elapsed));
+    el.textContent = left;
+    el.classList.toggle('danger', left<=3);
+    if(left<=0){
+      clearInterval(countdownInterval);
+      if(isHost) hostCancelQuestion();
+    }
+  }, 200);
 }
 
 /* ================= BUZZ HANDLING ================= */
@@ -538,7 +677,7 @@ function updateBuzzUI(data){
   wrap.classList.remove('hidden');
   if(data.status==='armed' && !data.lockedBy){
     btn.classList.add('armed'); btn.classList.remove('locked-out');
-    btn.style.background = TEAM_DEFS[myTeam].hex;
+    btn.style.background = data.teams[myTeam].hex;
   } else if(data.status==='locked'){
     btn.classList.remove('armed');
     btn.classList.toggle('locked-out', data.lockedBy!==playerId);
@@ -571,31 +710,36 @@ function updateQuestionModal(data){
     const h = data.cells[idx];
     document.getElementById('qBadge').textContent = 'حرف '+h.letter + (h.hiddenNum?' (كان مخفياً برقم '+h.hiddenNum+')':'');
     document.getElementById('qText').textContent = h.question;
-    document.getElementById('qAnswerBox').classList.add('hidden');
     document.getElementById('lockedInfo').classList.toggle('hidden', data.status!=='locked');
     if(data.status==='locked'){
       const p = playersCache.find(pp=>pp.id===data.lockedBy);
-      document.getElementById('lockedInfo').textContent = '🔒 '+(p?p.name:'لاعب')+' ضغط أولاً! ('+TEAM_DEFS[data.lockedTeam].name+')';
+      document.getElementById('lockedInfo').textContent = '🔒 '+(p?p.name:'لاعب')+' ضغط أولاً! ('+data.teams[data.lockedTeam].name+')';
     }
-    document.getElementById('hostRevealRow').classList.toggle('hidden', !(isHost && data.status==='locked'));
-    document.getElementById('judgeRow').classList.add('hidden');
+    if(data.revealed){
+      document.getElementById('qAnswerBox').textContent = h.answer;
+      document.getElementById('qAnswerBox').classList.remove('hidden');
+    } else {
+      document.getElementById('qAnswerBox').classList.add('hidden');
+    }
+    document.getElementById('hostRevealRow').classList.toggle('hidden', !(isHost && data.status==='locked' && !data.revealed));
+    const jRow = document.getElementById('judgeRow');
+    if(isHost && data.status==='locked' && data.revealed){
+      jRow.classList.remove('hidden');
+      const t = data.teams[data.lockedTeam];
+      jRow.innerHTML = `
+        <button class="btn" style="background:${t.hex}; color:#fff;" onclick="hostJudge(true)">✅ صحيح</button>
+        <button class="btn btn-outline" onclick="hostJudge(false)">✗ خطأ</button>
+      `;
+    } else {
+      jRow.classList.add('hidden');
+    }
+    document.getElementById('hostControlRow').classList.toggle('hidden', !isHost);
   } else if(data.status==='playing'){
     modal.classList.add('hidden');
   }
 }
 async function hostRevealAnswer(){
-  const data = roomCache;
-  const h = data.cells[data.activeCellIdx];
-  document.getElementById('qAnswerBox').textContent = h.answer;
-  document.getElementById('qAnswerBox').classList.remove('hidden');
-  document.getElementById('hostRevealRow').classList.add('hidden');
-  const row = document.getElementById('judgeRow');
-  const t = data.teams[data.lockedTeam];
-  row.classList.remove('hidden');
-  row.innerHTML = `
-    <button class="btn" style="background:${t.hex}; color:#fff;" onclick="hostJudge(true)">✅ صحيح</button>
-    <button class="btn btn-outline" onclick="hostJudge(false)">✗ خطأ</button>
-  `;
+  await roomRef.update({ revealed:true });
 }
 async function hostJudge(isCorrect){
   const data = roomCache;
@@ -607,14 +751,19 @@ async function hostJudge(isCorrect){
   if(isCorrect){
     h.owner = data.lockedTeam;
     let pts = h.special==='challenge' ? 2 : 1;
+    cells[idx] = h;
+    const awardedLines = data.awardedLines || {};
+    const newLines = await checkLineBonus(cells, data.lockedTeam, h.r, h.c, awardedLines);
+    const bonusCount = Object.keys(newLines).length;
+    if(bonusCount>0){ pts += bonusCount*3; Object.assign(awardedLines, newLines); updates['awardedLines'] = awardedLines; bonusSound(); }
     updates['teams/'+data.lockedTeam+'/score'] = data.teams[data.lockedTeam].score + pts;
     updates['streakTeam'] = data.lockedTeam;
     updates['streakCount'] = (data.streakTeam===data.lockedTeam ? (data.streakCount||0)+1 : 1);
   } else {
     h.blocked = true;
+    cells[idx] = h;
     updates['streakTeam'] = null; updates['streakCount'] = 0;
   }
-  cells[idx] = h;
   updates['cells'] = cells;
   updates['status'] = 'playing';
   updates['activeCellIdx'] = null;
@@ -642,7 +791,13 @@ async function resolveInstantSpecial(idx, h){
     wrongSound();
   } else if(h.special==='gift'){
     nh.owner = teamIdx;
-    updates['teams/'+teamIdx+'/score'] = data.teams[teamIdx].score+1;
+    let pts = 1;
+    cells[idx] = nh;
+    const awardedLines = data.awardedLines || {};
+    const newLines = await checkLineBonus(cells, teamIdx, nh.r, nh.c, awardedLines);
+    const bonusCount = Object.keys(newLines).length;
+    if(bonusCount>0){ pts += bonusCount*3; Object.assign(awardedLines, newLines); updates['awardedLines'] = awardedLines; }
+    updates['teams/'+teamIdx+'/score'] = data.teams[teamIdx].score+pts;
     bonusSound();
   } else if(h.special==='penalty'){
     nh.blocked = true;
@@ -685,6 +840,8 @@ updateQuestionModal = function(data){
         <button class="btn btn-outline" onclick="hostJudgeDare(false)">❌ لم يُنجزه</button>
       `;
     }
+    document.getElementById('hostControlRow').classList.add('hidden');
+    document.getElementById('qCountdown').classList.add('hidden');
     return;
   }
   _origUpdateQuestionModal(data);
@@ -698,13 +855,19 @@ async function hostJudgeDare(success){
   const updates = {};
   if(success){
     h.owner = data.lockedTeam;
-    updates['teams/'+data.lockedTeam+'/score'] = data.teams[data.lockedTeam].score + 2;
+    cells[idx]=h;
+    let pts = 2;
+    const awardedLines = data.awardedLines || {};
+    const newLines = await checkLineBonus(cells, data.lockedTeam, h.r, h.c, awardedLines);
+    const bonusCount = Object.keys(newLines).length;
+    if(bonusCount>0){ pts += bonusCount*3; Object.assign(awardedLines, newLines); updates['awardedLines'] = awardedLines; }
+    updates['teams/'+data.lockedTeam+'/score'] = data.teams[data.lockedTeam].score + pts;
     correctSound();
   } else {
     h.blocked = true;
+    cells[idx]=h;
     wrongSound();
   }
-  cells[idx]=h;
   updates['cells']=cells;
   updates['status']='playing';
   updates['activeCellIdx']=null;
@@ -725,6 +888,42 @@ function pulseCellClaim(r,c){
 
 /* ================= WIN CHECK (host computes) ================= */
 function cellAt(cells,r,c){ return cells.find(x=>x.r===r&&x.c===c); }
+
+/* ---- 3-in-a-row bonus (horizontal + both hex diagonal axes) ---- */
+function neighborInDir(r,c,dir,sign){
+  if(dir===0) return [r, c+sign];
+  if(dir===1){
+    if(sign>0) return r%2===0 ? [r+1,c] : [r+1,c+1];
+    return r%2===0 ? [r-1,c-1] : [r-1,c];
+  }
+  if(sign>0) return r%2===0 ? [r+1,c-1] : [r+1,c];
+  return r%2===0 ? [r-1,c] : [r-1,c+1];
+}
+function stepAlongDir(r,c,dir,steps){
+  let cr=r, cc=c; const sign = steps>0?1:-1;
+  for(let i=0;i<Math.abs(steps);i++){ const [nr,nc]=neighborInDir(cr,cc,dir,sign); cr=nr; cc=nc; }
+  return [cr,cc];
+}
+function lineKey(coords){
+  return coords.map(p=>p[0]+'_'+p[1]).sort().join('|');
+}
+async function checkLineBonus(cells, teamIdx, r, c, awardedLines){
+  const newlyAwarded = {};
+  for(let dir=0; dir<3; dir++){
+    for(let offset=-2; offset<=0; offset++){
+      const coords = [0,1,2].map(k=> stepAlongDir(r,c,dir,offset+k));
+      const key = lineKey(coords);
+      if(awardedLines && awardedLines[key]) continue;
+      const allOwned = coords.every(([cr,cc])=>{
+        const cell = cellAt(cells,cr,cc);
+        return cell && cell.owner===teamIdx;
+      });
+      if(allOwned){ newlyAwarded[key] = true; }
+    }
+  }
+  return newlyAwarded; // map of new line keys earned this move
+}
+
 function checkHexWin(cells, teamIdx){
   const start = teamIdx===0 ? cells.filter(h=>h.c===0 && h.owner===0) : cells.filter(h=>h.r===0 && h.owner===1);
   const visited = new Set(); const queue=[...start];
@@ -792,6 +991,8 @@ async function leaveRoom(){
 }
 
 /* ================= FLOATING STATUS (connection dots) ================= */
+window.addEventListener('resize', ()=>{ if(roomCache && roomCache.cells) renderBoard(roomCache); });
+
 function renderFloatingStatus(){
   const bar = document.getElementById('floatingStatus');
   const onHome = !document.getElementById('homeScreen').classList.contains('hidden');
