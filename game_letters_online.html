@@ -607,8 +607,7 @@ function renderBoard(data){
 
   // auto-scale to fit the viewport width (mobile portrait) without needing manual pinch-zoom
   // uses transform:scale (unlike the non-standard `zoom` property, this works on iOS Safari too)
-  const stableContainer = document.getElementById('gameContent') || wrap;
-  const availableWidth = (stableContainer ? stableContainer.clientWidth : window.innerWidth) - 8;
+  const availableWidth = Math.min(window.innerWidth - 32, 1100); // cap so it doesn't grow absurdly huge on ultra-wide monitors
   // use the actual remaining vertical space below the board's position, not a crude fixed percentage
   const wrapTopOffset = wrap ? wrap.getBoundingClientRect().top : 0;
   const availableHeight = Math.max(200, window.innerHeight - wrapTopOffset - 160); // leave room for the buzz button/status below
