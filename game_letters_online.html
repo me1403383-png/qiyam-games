@@ -85,15 +85,15 @@ select{width:100%; padding:11px; border-radius:8px; border:1.5px solid rgba(255,
 .judge-row{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:10px;}
 .locked-info{font-weight:800; color:var(--cta); margin-bottom:10px; font-size:1.05rem;}
 .hint-text{background:rgba(46,196,182,.12); border:2px dashed var(--teal); border-radius:8px; padding:8px 12px; font-size:.9rem; color:var(--teal); margin-bottom:10px;}
-.team-helper-btn{display:flex; flex-direction:column; align-items:center; gap:4px; min-width:84px; padding:10px 8px; border-radius:8px; border:3px solid #000; background:var(--card-2); font-family:'Tajawal'; cursor:pointer; font-weight:800; box-shadow:4px 4px 0 #000; transition:transform .1s;}
-.team-helper-btn:active{transform:translate(3px,3px); box-shadow:1px 1px 0 #000;}
-.team-helper-btn .thb-icon{font-size:1.6rem;}
-.team-helper-btn .thb-label{font-size:.72rem; line-height:1.25; color:var(--text);}
-.team-helper-btn.thb-friend{background:linear-gradient(160deg,#5c7cfa,#3b5bdb); color:#fff;}
-.team-helper-btn.thb-hint{background:linear-gradient(160deg,#ffa94d,#f76707); color:#fff;}
-.team-helper-btn.thb-swap{background:linear-gradient(160deg,#da77f2,#9c36b5); color:#fff;}
-.team-helper-btn.thb-friend .thb-label, .team-helper-btn.thb-hint .thb-label, .team-helper-btn.thb-swap .thb-label{color:#fff;}
-.team-helper-btn.used-flag{opacity:.25; pointer-events:none; filter:grayscale(.6); box-shadow:2px 2px 0 #000;}
+.team-helper-btn{display:flex; flex-direction:column; align-items:center; gap:0; min-width:78px; padding:0; border:none; background:transparent; font-family:'Tajawal'; cursor:pointer; transition:transform .12s;}
+.team-helper-btn:active{transform:scale(.94);}
+.team-helper-btn:hover{transform:translateY(-3px);}
+.thb-badge{width:58px; height:58px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.7rem; border:4px solid #8a6a3a; box-shadow:0 4px 0 rgba(0,0,0,.4), inset 0 3px 6px rgba(255,255,255,.35), inset 0 -6px 8px rgba(0,0,0,.25); position:relative; z-index:2;}
+.team-helper-btn.thb-friend .thb-badge{background:radial-gradient(circle at 35% 30%, #6bdc7a, #1d9e3f);}
+.team-helper-btn.thb-hint .thb-badge{background:radial-gradient(circle at 35% 30%, #c99bff, #7b2fd6);}
+.team-helper-btn.thb-swap .thb-badge{background:radial-gradient(circle at 35% 30%, #6fb8ff, #1c62c9);}
+.thb-label{margin-top:-8px; background:linear-gradient(180deg,#a8763f,#7a5228); border:2px solid #5c3d1c; border-radius:6px; padding:6px 8px 4px; font-size:.68rem; font-weight:800; color:#fff5e0; text-shadow:0 1px 2px rgba(0,0,0,.5); line-height:1.2; min-width:74px; text-align:center; box-shadow:0 3px 0 rgba(0,0,0,.35); z-index:1;}
+.team-helper-btn.used-flag{opacity:.3; pointer-events:none; filter:grayscale(.7);}
 
 #winScreen{position:fixed; inset:0; background:radial-gradient(circle at 50% 20%, rgba(36,36,74,.55), rgba(15,12,41,.65)); display:flex; align-items:flex-start; justify-content:center; padding-top:8vh; z-index:200;}
 .win-card{background:rgba(15,12,41,.9); border:3px solid var(--purple); border-radius:14px; padding:24px 34px; box-shadow:6px 6px 0 #000; text-align:center;}
@@ -101,6 +101,15 @@ select{width:100%; padding:11px; border-radius:8px; border:1.5px solid rgba(255,
 .win-card p{font-size:1.1rem; margin-top:8px; color:#fff;}
 
 .floating-status{position:fixed; top:8px; left:8px; background:rgba(20,15,40,.9); border-radius:8px; padding:6px 10px; font-size:.75rem; z-index:150; max-width:150px;}
+.helper-announce{position:fixed; top:14%; left:50%; transform:translate(-50%,-50%) scale(.5); z-index:180; background:linear-gradient(180deg,#a8763f,#7a5228); border:3px solid #5c3d1c; border-radius:12px; padding:14px 28px; font-family:'Tajawal'; font-weight:800; color:#fff5e0; text-shadow:0 1px 2px rgba(0,0,0,.5); box-shadow:0 6px 0 rgba(0,0,0,.35); opacity:0; pointer-events:none; text-align:center; font-size:1rem;}
+.helper-announce.show{ animation:helperAnnouncePop 2.2s ease-out forwards; }
+@keyframes helperAnnouncePop{
+  0%{ opacity:0; transform:translate(-50%,-50%) scale(.5); }
+  15%{ opacity:1; transform:translate(-50%,-50%) scale(1.1); }
+  25%{ transform:translate(-50%,-50%) scale(1); }
+  85%{ opacity:1; }
+  100%{ opacity:0; transform:translate(-50%,-50%) scale(.9) translateY(-10px); }
+}
 .floating-status .fp-row{display:flex; align-items:center; gap:6px; padding:2px 0;}
 .fp-dot{width:7px; height:7px; border-radius:50%; flex-shrink:0;}
 </style>
@@ -223,6 +232,7 @@ select{width:100%; padding:11px; border-radius:8px; border:1.5px solid rgba(255,
 </div>
 
 <div class="floating-status hidden" id="floatingStatus"></div>
+<div class="helper-announce" id="helperAnnounce"></div>
 
 <!-- WIN SCREEN -->
 <div id="winScreen" class="hidden">
@@ -545,8 +555,27 @@ async function startGame(){
 }
 
 /* ================= ROOM STATE HANDLING ================= */
+let lastSeenHelperTs = 0;
+const HELPER_ANNOUNCE_INFO = {
+  friend: { icon:'🤝', label:'استخدم مساعدة صديق (+10 ثوانٍ)' },
+  hint: { icon:'💡', label:'استخدم تلميح الحرف التالي' },
+  swap: { icon:'🔄', label:'غيّر السؤال' }
+};
+function checkHelperAnnouncement(data){
+  if(!data.helperEvent || !data.helperEvent.ts) return;
+  if(data.helperEvent.ts<=lastSeenHelperTs) return;
+  lastSeenHelperTs = data.helperEvent.ts;
+  const info = HELPER_ANNOUNCE_INFO[data.helperEvent.type];
+  if(!info) return;
+  const team = data.teams[data.helperEvent.team];
+  const el = document.getElementById('helperAnnounce');
+  el.textContent = `${info.icon} ${team.name} ${info.label}`;
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+}
+
 function handleRoomUpdate(data){
   roomCache = data;
+  checkHelperAnnouncement(data);
   if(data.status==='lobby'){
     renderLobbyPlayers();
   } else if(data.status==='playing' || data.status==='armed' || data.status==='locked' || data.status==='resolved'){
@@ -676,7 +705,8 @@ async function useTeamFriend(){
   const newLockedAt = (data.lockedAt || Date.now()) + 10000; // shift the start point later = +10s remaining
   await roomRef.update({
     ['teams/'+myTeam+'/helpersUsed/friend']: true,
-    lockedAt: newLockedAt
+    lockedAt: newLockedAt,
+    helperEvent: { type:'friend', team:myTeam, ts: Date.now() }
   });
 }
 async function useTeamHint(){
@@ -695,7 +725,8 @@ async function useTeamHint(){
   }
   await roomRef.update({
     ['teams/'+myTeam+'/helpersUsed/hint']: true,
-    hintText: hintChar, hintForTeam: myTeam
+    hintText: hintChar, hintForTeam: myTeam,
+    helperEvent: { type:'hint', team:myTeam, ts: Date.now() }
   });
 }
 async function useTeamSwap(){
@@ -716,7 +747,8 @@ async function useTeamSwap(){
   await roomRef.update({
     ['teams/'+myTeam+'/helpersUsed/swap']: true,
     cells, lockedAt: firebase.database.ServerValue.TIMESTAMP,
-    hintText:null, hintForTeam:null
+    hintText:null, hintForTeam:null,
+    helperEvent: { type:'swap', team:myTeam, ts: Date.now() }
   });
 }
 
@@ -860,9 +892,9 @@ function updateQuestionModal(data){
       const used = (data.teams[myTeam].helpersUsed)||{};
       helperRow.classList.remove('hidden');
       helperRow.innerHTML = `
-        <button class="team-helper-btn thb-friend ${used.friend?'used-flag':''}" onclick="useTeamFriend()"><span class="thb-icon">📞</span><span class="thb-label">مساعدة صديق<br>+10 ثوانٍ</span></button>
-        <button class="team-helper-btn thb-hint ${used.hint?'used-flag':''}" onclick="useTeamHint()"><span class="thb-icon">🔤</span><span class="thb-label">تلميح<br>الحرف الثاني</span></button>
-        <button class="team-helper-btn thb-swap ${used.swap?'used-flag':''}" onclick="useTeamSwap()"><span class="thb-icon">🔄</span><span class="thb-label">تغيير<br>السؤال</span></button>
+        <button class="team-helper-btn thb-friend ${used.friend?'used-flag':''}" onclick="useTeamFriend()"><span class="thb-badge">🤝</span><span class="thb-label">مساعدة صديق<br>+10 ثوانٍ</span></button>
+        <button class="team-helper-btn thb-hint ${used.hint?'used-flag':''}" onclick="useTeamHint()"><span class="thb-badge">💡</span><span class="thb-label">تلميح:<br>الحرف التالي</span></button>
+        <button class="team-helper-btn thb-swap ${used.swap?'used-flag':''}" onclick="useTeamSwap()"><span class="thb-badge">🔄</span><span class="thb-label">تغيير سؤال</span></button>
       `;
       if(data.hintText && data.hintForTeam===myTeam){
         hintEl.textContent = '🔤 التلميح: '+data.hintText;
