@@ -63,6 +63,8 @@ select{width:100%; padding:11px; border-radius:8px; border:1.5px solid rgba(255,
 .hex-cell.blocked{background:#33304a; color:#6b7280;}
 .hex-cell.special{background:linear-gradient(160deg,#4a2e8a,#2a1a5c); color:var(--cta); border-color:var(--purple); animation:specialGlow 1.8s ease-in-out infinite;}
 .edge-tri{position:absolute; z-index:0; opacity:.9;}
+.hex-cell.edge-fill{z-index:0; opacity:.9; cursor:default; border:none; box-shadow:none;}
+.hex-cell.edge-fill:hover{transform:none; filter:none;}
 @keyframes specialGlow{ 0%,100%{box-shadow:0 0 8px rgba(138,92,246,.4);} 50%{box-shadow:0 0 24px rgba(138,92,246,.9);} }
 .hex-cell .hex-inner-num{font-size:1.3rem; opacity:.85;}
 .hex-cell.claim-pop{ animation:claimPop .5s ease-out; }
@@ -655,16 +657,14 @@ function renderBoard(data){
   const team0Color = data.teams[0] ? data.teams[0].hex : '#4aa8ff';
   const team1Color = data.teams[1] ? data.teams[1].hex : '#ffd166';
 
-  // left/right zigzag triangles (team0's goal: left <-> right)
+  // left/right filler: full hexagon shapes at virtual columns -1 and HEX_COLS.
+  // Only half of each is ever visible (the rest is clipped by the scaler), but because it's a
+  // real hexagon using the exact same tessellation math as the actual cells, the visible half
+  // fills its neighbor's zigzag edge with zero gaps — unlike an approximated triangle.
   for(let r=0;r<HEX_ROWS;r++){
-    const y = hy(r);
-    if(r%2===1){
-      // odd rows are shifted right, leaving a left-side notch to fill
-      html += `<div class="edge-tri" style="left:0px; top:${y}px; width:${rowShift}px; height:${vStep}px; clip-path:polygon(100% 0%,100% 100%,0% 50%); background:${team0Color};"></div>`;
-    } else {
-      // even rows leave a right-side notch to fill
-      html += `<div class="edge-tri" style="left:${HEX_COLS*hStep}px; top:${y}px; width:${rowShift}px; height:${vStep}px; clip-path:polygon(0% 0%,0% 100%,100% 50%); background:${team0Color};"></div>`;
-    }
+    const yL = hy(r);
+    html += `<div class="hex-cell edge-fill" style="left:${hx(r,-1)}px; top:${yL}px; background:${team0Color};"></div>`;
+    html += `<div class="hex-cell edge-fill" style="left:${hx(r,HEX_COLS)}px; top:${yL}px; background:${team0Color};"></div>`;
   }
   // top/bottom zigzag triangles (team1's goal: top <-> bottom)
   const tipH = hexH*0.25;
