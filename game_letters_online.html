@@ -636,7 +636,7 @@ function renderBoard(data){
   const hexW=88, hexH=100, hStep=hexW, vStep=hexH*0.75, rowShift=hexW/2;
   function hx(r,c){ return c*hStep + (r%2===1?rowShift:0); }
   function hy(r){ return r*vStep; }
-  const boardW = HEX_COLS*hStep + rowShift + hexW*0.15;
+  const boardW = HEX_COLS*hStep + rowShift + 1; // exact max extent + 1px rounding safety (kept tiny so left/right clipping stays symmetric)
   const boardH = HEX_ROWS*vStep + hexH*0.3;
   board.style.width = boardW+'px'; board.style.height = boardH+'px';
 
